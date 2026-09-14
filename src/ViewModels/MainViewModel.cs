@@ -10,6 +10,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using ICSharpCode.AvalonEdit.Document;
+using ICSharpCode.AvalonEdit.Highlighting;
 using Microsoft.Win32;
 using ScriptManager;
 using ScriptManager.Cache;
@@ -78,7 +79,11 @@ public class MainViewModel : ViewModelBase
     public ScriptItem? SelectedScript
     {
         get => _selectedScript;
-        private set => SetProperty(ref _selectedScript, value);
+        private set
+        {
+            if (SetProperty(ref _selectedScript, value))
+                OnPropertyChanged(nameof(ScriptHighlighting)); // 语言随脚本切换，预览高亮需同步刷新
+        }
     }
 
     private ObservableCollection<ParamFieldViewModel> _paramFields = new();
@@ -145,6 +150,22 @@ public class MainViewModel : ViewModelBase
         get => _scriptDocument;
         private set => SetProperty(ref _scriptDocument, value);
     }
+
+    /// <summary>
+    /// 预览面板的语法高亮定义，按当前脚本 lang 映射到 AvalonEdit 内置的高亮定义。
+    /// 未收录的语言返回 null（不高亮）——无色胜过错色：bat/bash/go/rust 若套用其它语言的高亮，
+    /// 注释符与关键字会被整体标错色（如 # 在 PowerShell 是注释、在 bat 里不是），属视觉误导。
+    /// 语言随 <see cref="SelectedScript"/> 变化，故在其 setter 中通知本属性刷新。
+    /// </summary>
+    public IHighlightingDefinition? ScriptHighlighting =>
+        SelectedScript?.Lang?.ToLowerInvariant() switch
+        {
+            ScriptLangs.PowerShell or ScriptLangs.Pwsh => HighlightingManager.Instance.GetDefinition("PowerShell"),
+            ScriptLangs.Python => HighlightingManager.Instance.GetDefinition("Python"),
+            ScriptLangs.Node => HighlightingManager.Instance.GetDefinition("JavaScript"),
+            ScriptLangs.Java => HighlightingManager.Instance.GetDefinition("Java"),
+            _ => null
+        };
 
     // 日志条目集合（多色真源，由 XAML 后台监听追加到 RichTextBox 并自动按 Level 着色）
     private ObservableCollection<LogEntry> _logs = new ObservableCollection<LogEntry>();
@@ -1031,10 +1052,10 @@ public class MainViewModel : ViewModelBase
         // 本次执行会话 id：用于隔离「切换脚本后旧进程仍在输出」的日志串台问题。
         // OnLog 回调会携带此 id，只有与当前会话匹配才写入 UI/文件。
         _runSession = Guid.NewGuid();
-        // 计算本次运行的日志文件路径：exe同级 log/yyyy-MM-dd/脚本名_yyyyMMddHHmmss.log
+        // 计算本次运行的日志文件路径：配置的 log_dir（默认 exe 同级 log）/yyyy-MM-dd/脚本名_yyyyMMddHHmmss.log
         try
         {
-            var logDir = Path.Combine(ExeDir, "log", DateTime.Now.ToString("yyyy-MM-dd"));
+            var logDir = Path.Combine(AppConfig.LogDir, DateTime.Now.ToString("yyyy-MM-dd"));
             Directory.CreateDirectory(logDir);
             var baseName = Path.GetFileNameWithoutExtension(script.ResolvedPath);
             _currentLogFile = Path.Combine(logDir, $"{baseName}_{DateTime.Now:yyyyMMddHHmmss}.log");

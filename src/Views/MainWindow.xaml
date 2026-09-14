@@ -563,7 +563,7 @@
                                                Style="{StaticResource ReadOnlyCodeViewer}"
                                                VerticalScrollBarVisibility="Auto"
                                                HorizontalScrollBarVisibility="Auto"
-                                               SyntaxHighlighting="PowerShell"
+                                               SyntaxHighlighting="{Binding ScriptHighlighting}"
                                                Document="{Binding ScriptDocument}" />
                             </Border>
                         </DockPanel>

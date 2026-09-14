@@ -12,11 +12,19 @@ namespace ScriptManager;
 /// </summary>
 public static class ConfigLoader
 {
-    /// <summary>脚本索引 json 的完整路径 = 脚本目录下的 index.json（来自配置，默认 exe 同级 script/index.json）。</summary>
-    public static readonly string ScriptIndexJson = AppConfig.ScriptIndexJsonPath;
+    /// <summary>
+    /// 脚本索引 json 的完整路径 = 脚本目录下的 index.json（来自配置，默认 exe 同级 script/index.json）。
+    /// 动态属性：每次读取都取 AppConfig 的当前值，使运行期「文件▸打开 / 编辑配置」切换索引后即时生效。
+    /// ⚠️ 勿改为 static readonly 字段——那会在类型初始化时冻结启动值，导致切换索引后导出仍指向旧目录。
+    /// </summary>
+    public static string ScriptIndexJson => AppConfig.ScriptIndexJsonPath;
 
-    /// <summary>脚本所在目录（由 script_index_file 推导，用于解析脚本相对路径与导出）。</summary>
-    public static readonly string ScriptDir = AppConfig.ScriptDir;
+    /// <summary>
+    /// 脚本所在目录（由 script_index_file 推导，用于解析脚本相对路径与导出）。
+    /// 动态属性：与 <see cref="ScriptIndexJson"/> 同源，切换索引后导出等操作使用最新目录。
+    /// ⚠️ 勿改为 static readonly 字段（同上）。
+    /// </summary>
+    public static string ScriptDir => AppConfig.ScriptDir;
 
     /// <summary>加载指定索引 json 路径的脚本列表，供 MVVM 构建树节点（文件不存在时返回空）。</summary>
     public static List<ScriptItem> LoadIndex(string indexPath)
