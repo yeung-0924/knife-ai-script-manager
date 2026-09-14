@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# 更新时间: 2026-09-14 17:25:00
-# 全国行政区划导出（省 / 地 / 县 / 乡）→ CSV / TXT / JSON / GaussDB SQL
+# 更新时间: 2026-09-14 18:09:00
+# 全国行政区划导出（省 / 地 / 县 / 乡）→ CSV / TXT / JSON / SQL（MySQL 兼容）
 #
 # 数据源：民政部·国家地名信息库  https://dmfw.mca.gov.cn/9095/xzqh/getList
 # 仅依赖 Python 标准库（3.7+），无需 pip 安装任何东西。
@@ -15,7 +15,7 @@
 #   china_xzqh[_l4].csv            16 列，UTF-8 带 BOM，Excel 双击可开
 #   china_xzqh[_l4].txt            制表符分隔（同 16 列），UTF-8 带 BOM
 #   china_xzqh[_l4].json           JSON 数组（字段名同 CSV 表头），UTF-8 无 BOM
-#   china_xzqh[_l4]_gaussdb.sql    建表 + 字段注释 + 索引 + 分批 INSERT
+#   china_xzqh[_l4].sql            建表 + 列注释 + 索引 + 分批 INSERT（MySQL 5.7+/8.0 可直接执行）
 #
 # ★ 接口四条铁律（沿用已验证的抓取逻辑，勿改）
 #   1) 一次请求最多返回「从 code 起点向下 3 层」的子树，maxLevel 上限为 3：
@@ -337,6 +337,13 @@ def _esc(s):
 
 
 def write_sql(path, recs, stat):
+    """写出建表与 INSERT 语句。
+
+    口径：主体为通用 SQL（CREATE TABLE / INSERT INTO 皆标准写法，不依赖任何方言），
+    落地上按 **MySQL 5.7+ / 8.0 可直接执行**为标准——列注释用 COMMENT '...'、
+    布尔用 TINYINT(1)、表尾带 ENGINE / CHARSET / COLLATE。换库时见文末「其他数据库适配」，
+    那几处是仅有的 MySQL 专有写法。
+    """
     four = stat.get(4, 0) > 0
     lines = []
     a = lines.append
@@ -350,57 +357,49 @@ def write_sql(path, recs, stat):
     a("-- 数据修订：接口未返回台湾省数字编码（原为中文「资料暂缺」），")
     a("--           已按其 GB/T 2260 标准码 710000 补齐，避免非数字内容进入编号列。")
     a("--")
+    a("-- 语法口径：通用 SQL 为主，默认按 MySQL 5.7+ / 8.0 可直接执行")
+    a("--           （列注释 COMMENT '...'、布尔 TINYINT(1)、表尾 ENGINE / CHARSET / COLLATE）")
     a("-- 用法一（重建）：整体执行本脚本")
     a("-- 用法二（仅刷新）：跳过 DROP/CREATE，先 TRUNCATE TABLE dim_xzqh; 再执行 INSERT 段")
     a("-- ============================================================")
     a("")
+    a("-- 显式声明连接字符集，避免中文按 latin1 写入后乱码（MySQL 语句）")
+    a("SET NAMES utf8mb4;")
+    a("")
     a("DROP TABLE IF EXISTS dim_xzqh;")
     a("")
     a("CREATE TABLE dim_xzqh (")
-    a("    code            VARCHAR(9)   NOT NULL,")
-    a("    name            VARCHAR(120) NOT NULL,")
-    a("    admin_level     SMALLINT     NOT NULL,")
-    a("    level_name      VARCHAR(16)  NOT NULL,")
-    a("    division_type   VARCHAR(32),")
-    a("    parent_code     VARCHAR(9),")
-    a("    parent_name     VARCHAR(120),")
-    a("    province_code   VARCHAR(6),")
-    a("    province_name   VARCHAR(120),")
-    a("    city_code       VARCHAR(6),")
-    a("    city_name       VARCHAR(120),")
-    a("    county_code     VARCHAR(6),")
-    a("    county_name     VARCHAR(120),")
-    a("    full_name       VARCHAR(300),")
-    a("    is_leaf         BOOLEAN,")
-    a("    fetch_date      DATE,")
-    a("    CONSTRAINT pk_dim_xzqh PRIMARY KEY (code)")
-    a(");")
-    a("")
-    a("COMMENT ON TABLE  dim_xzqh               IS '全国行政区划维度表（省/地/县/乡）';")
-    a("COMMENT ON COLUMN dim_xzqh.code          IS '行政区划代码；区县及以上 6 位(GB/T 2260)，乡级 9 位(GB/T 10114)';")
-    a("COMMENT ON COLUMN dim_xzqh.name          IS '行政区划名称';")
-    a("COMMENT ON COLUMN dim_xzqh.admin_level   IS '层级：1=省级 2=地级 3=县级 4=乡级';")
-    a("COMMENT ON COLUMN dim_xzqh.level_name    IS '层级名称：省级/地级/县级/乡级';")
-    a("COMMENT ON COLUMN dim_xzqh.division_type IS '区划类型：省/自治区/直辖市/特别行政区/地级市/自治州/地区/盟/市辖区/县/县级市/自治县/旗/街道/镇/乡/民族乡/苏木/区公所等';")
-    a("COMMENT ON COLUMN dim_xzqh.parent_code   IS '直接上级代码；省及港澳台为 NULL';")
-    a("COMMENT ON COLUMN dim_xzqh.parent_name   IS '直接上级名称';")
-    a("COMMENT ON COLUMN dim_xzqh.province_code IS '所属省级代码';")
-    a("COMMENT ON COLUMN dim_xzqh.province_name IS '所属省级名称';")
-    a("COMMENT ON COLUMN dim_xzqh.city_code     IS '所属地级代码；直辖市辖区、省直辖县级、直筒子市下辖乡级为 NULL';")
-    a("COMMENT ON COLUMN dim_xzqh.city_name     IS '所属地级名称';")
-    a("COMMENT ON COLUMN dim_xzqh.county_code   IS '所属县级代码；直筒子市下辖乡级为 NULL';")
-    a("COMMENT ON COLUMN dim_xzqh.county_name   IS '所属县级名称';")
-    a("COMMENT ON COLUMN dim_xzqh.full_name     IS '自顶向下全称，如“河北省石家庄市长安区建北街道”';")
-    a("COMMENT ON COLUMN dim_xzqh.is_leaf       IS '是否叶子节点（无下级数据）';")
-    a("COMMENT ON COLUMN dim_xzqh.fetch_date    IS '数据抓取日期';")
+    a("    code            VARCHAR(9)   NOT NULL COMMENT '行政区划代码；区县及以上 6 位(GB/T 2260)，乡级 9 位(GB/T 10114)',")
+    a("    name            VARCHAR(120) NOT NULL COMMENT '行政区划名称',")
+    a("    admin_level     SMALLINT     NOT NULL COMMENT '层级：1=省级 2=地级 3=县级 4=乡级',")
+    a("    level_name      VARCHAR(16)  NOT NULL COMMENT '层级名称：省级/地级/县级/乡级',")
+    a("    division_type   VARCHAR(32)           COMMENT '区划类型：省/自治区/直辖市/特别行政区/地级市/自治州/地区/盟/市辖区/县/县级市/自治县/旗/街道/镇/乡/民族乡/苏木/区公所等',")
+    a("    parent_code     VARCHAR(9)            COMMENT '直接上级代码；省及港澳台为 NULL',")
+    a("    parent_name     VARCHAR(120)          COMMENT '直接上级名称',")
+    a("    province_code   VARCHAR(6)            COMMENT '所属省级代码',")
+    a("    province_name   VARCHAR(120)          COMMENT '所属省级名称',")
+    a("    city_code       VARCHAR(6)            COMMENT '所属地级代码；直辖市辖区、省直辖县级、直筒子市下辖乡级为 NULL',")
+    a("    city_name       VARCHAR(120)          COMMENT '所属地级名称',")
+    a("    county_code     VARCHAR(6)            COMMENT '所属县级代码；直筒子市下辖乡级为 NULL',")
+    a("    county_name     VARCHAR(120)          COMMENT '所属县级名称',")
+    a("    full_name       VARCHAR(300)          COMMENT '自顶向下全称，如「河北省石家庄市长安区建北街道」',")
+    a("    is_leaf         TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '是否叶子节点（无下级数据）：1=是 0=否',")
+    a("    fetch_date      DATE                  COMMENT '数据抓取日期',")
+    a("    PRIMARY KEY (code)")
+    a(") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci")
+    a("  COMMENT='全国行政区划维度表（省/地/县/乡）';")
     a("")
     for col in ("parent_code", "province_code", "city_code", "county_code"):
         a("CREATE INDEX idx_dim_xzqh_%s ON dim_xzqh (%s);" % (col.replace("_code", ""), col))
     a("CREATE INDEX idx_dim_xzqh_level ON dim_xzqh (admin_level);")
     a("CREATE INDEX idx_dim_xzqh_name  ON dim_xzqh (name);")
     a("")
-    a("-- GaussDB 分布式部署可选用（按需取消注释）：")
-    a("-- DISTRIBUTE BY HASH(code);")
+    a("-- 其他数据库适配（本文件默认按 MySQL 书写，以下为仅有的几处 MySQL 专有写法）：")
+    a("--   · 表尾 ENGINE / DEFAULT CHARSET / COLLATE / COMMENT 与上方 SET NAMES：换库时整段删除；")
+    a("--   · 列级 COMMENT '...' 同理，PostgreSQL / Oracle / GaussDB 请改为独立的")
+    a("--     COMMENT ON COLUMN dim_xzqh.xxx IS '...'; 语句（原 GaussDB 版即如此）；")
+    a("--   · is_leaf 的 TINYINT(1) 在其他库可写 BOOLEAN；")
+    a("--   · GaussDB 分布式部署可选：DISTRIBUTE BY HASH(code);")
     a("")
 
     fields = ", ".join(COLS)
@@ -413,7 +412,7 @@ def write_sql(path, recs, stat):
             _esc(r["province_code"]), _esc(r["province_name"]),
             _esc(r["city_code"]), _esc(r["city_name"]),
             _esc(r["county_code"]), _esc(r["county_name"]),
-            _esc(r["full_name"]), "TRUE" if r["is_leaf"] else "FALSE", "DATE " + _esc(FETCH_DATE),
+            _esc(r["full_name"]), "1" if r["is_leaf"] else "0", _esc(FETCH_DATE),
         ]) + ")")
     for i in range(0, len(tuples), batch):
         a("INSERT INTO dim_xzqh (%s) VALUES" % fields)
@@ -632,7 +631,7 @@ def build(out_dir, out_type, code_filter, levels, cache_dir, workers, sleep_s, c
         "csv": ("china_xzqh%s.csv" % suffix, write_csv),
         "txt": ("china_xzqh%s.txt" % suffix, write_txt),
         "json": ("china_xzqh%s.json" % suffix, write_json),
-        "sql": ("china_xzqh%s_gaussdb.sql" % suffix,
+        "sql": ("china_xzqh%s.sql" % suffix,
                 lambda p, r: write_sql(p, r, stat)),
     }
     name, writer = targets[out_type]

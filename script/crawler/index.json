@@ -36,7 +36,7 @@
         "required": true,
         "type": "select",
         "options": ["csv", "txt", "json", "sql"],
-        "placeholder": "csv / txt / json / sql"
+        "placeholder": "csv / txt / json / sql（sql = MySQL 兼容建表 + INSERT）"
       }
     ]
   }

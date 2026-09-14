@@ -21,9 +21,15 @@
   - **导出目录**（必选，文件夹选择框）：结果文件写入该目录；
   - **省市县区代码**（可选）：留空导出全部，填写则只导出该区划及其下级；并据此裁剪乡级下钻请求（导出单个省由 451 次降到十余次）；
   - **导出级别**（下拉）：`省市县区` 或 `乡镇街道`（后者 = 省市县区 + 乡镇街道）；
-  - **导出类型**（下拉，默认 `csv`）：`csv` / `txt` / `json` / `sql`（`sql` 为 GaussDB 建表 + 字段注释 + 索引 + 分批 INSERT）。
+  - **导出类型**（下拉，默认 `csv`）：`csv` / `txt` / `json` / `sql`（`sql` 输出通用建表 + 列注释 + 索引 + 分批 INSERT，默认按 **MySQL** 可直接执行）。
 - 结果一律**按编码正序排序**；`乡镇街道` 时文件名带 `_l4` 后缀（如 `china_xzqh_l4.json`）；接口响应缓存默认放 `%LOCALAPPDATA%\knife-script-manager\cache\xzqh`（7 天过期，不写进导出目录）。
 - 脚本索引新增顶层分类 **`爬虫`**（`script/crawler/index.json`），根 `script/index.json` 以 `include` 汇聚。
+- **SQL 导出改为通用语法、默认兼容 MySQL**：主体为标准 SQL（`CREATE TABLE` / `INSERT INTO`），按 **MySQL 5.7+ / 8.0 / 8.4 可直接执行**落地——
+  列注释改用内联 `COMMENT '...'`（原为 `COMMENT ON COLUMN` 独立语句）、布尔改用 `TINYINT(1)` + `1/0`（原为 `BOOLEAN` + `TRUE`/`FALSE`）、
+  日期字面量去掉 `DATE '...'` 前缀、建表尾部补 `ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci` 与表注释、
+  文件开头补 `SET NAMES utf8mb4;` 防中文按 latin1 写入乱码；产物文件名由 `china_xzqh[_l4]_gaussdb.sql` 改为 `china_xzqh[_l4].sql`。
+  文件末尾保留「其他数据库适配」注释，说明换库时删哪几处（GaussDB 的 `DISTRIBUTE BY HASH(code)` 也记在其中）。
+  已在 **MySQL 8.0.46 与 8.4.11** 真库导入验证：全量 42,041 行导入零错误零警告、中文无乱码、16 列注释与 7 个索引均生效、重复导入幂等。
 
 ### 缺陷修复
 - 脚本执行日志目录改为遵循 `config.ini` 的 `log_dir`（此前写死为 exe 同级 `log`，该配置项对执行日志不生效、仅 `error.log` 生效）。
