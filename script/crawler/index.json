@@ -10,6 +10,7 @@
         "default": "",
         "required": true,
         "type": "folder",
+        "open_after_run": true,
         "placeholder": "选择导出结果的保存目录，如 D:\\导出\\行政区划"
       },
       {

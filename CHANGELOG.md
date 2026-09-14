@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### 新增功能
+- **脚本跑完自动打开输出目录**：`params[]` 新增可选字段 `open_after_run`。标了它的参数，在脚本**执行成功（退出码 0）**后会被自动在资源管理器中打开
+  ——目录参数直接打开该目录，文件参数打开所在目录并选中该文件；参数留空或路径尚未产出则静默跳过。
+  失败 / 超时 / 被停止时不打开（此时多半没有产出，弹窗只会干扰）。已应用到 `爬虫 ▸ 中国行政区划` 的「导出目录」参数。
+  字段说明同步进 `script/README.md` 的 `params` 表与 `script/.skills/SKILL.md`。
+
 ### 构建（首次构建提速）
 - 发布命令显式把 `RuntimeIdentifiers` 收窄为**单个目标架构**（`-p:RuntimeIdentifiers=$Runtime`）。
   根因：csproj 声明的是 `<RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>`，而**只要该属性含多个值，

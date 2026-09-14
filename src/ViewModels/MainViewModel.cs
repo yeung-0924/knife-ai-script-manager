@@ -1089,7 +1089,11 @@ public class MainViewModel : ViewModelBase
             else if (result.TimedOut)
                 ShowTemporaryStatus(string.Format(Strings.StatusTimeoutFormat, script.Name));
             else if (result.ExitCode == 0)
+            {
                 ShowTemporaryStatus(string.Format(Strings.StatusCompletedFormat, script.Name));
+                // 只在成功时打开输出位置：失败 / 超时 / 被停止时目录多半没有产出，弹窗只会干扰
+                OpenOutputPaths(workingDir);
+            }
             else
                 ShowTemporaryStatus(string.Format(Strings.StatusExitedFormat, script.Name, result.ExitCode));
         }
@@ -1113,6 +1117,48 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// 把标注了 <c>open_after_run</c> 的参数指向的路径在资源管理器中打开：目录参数打开该目录，
+    /// 文件参数打开所在目录并选中该文件。供「导出类脚本跑完 → 立刻看结果目录」的场景使用。
+    /// 路径尚未产出或参数留空时静默跳过，不影响执行结果与状态栏。
+    /// </summary>
+    /// <param name="workingDir">脚本所在目录，用于解析手填的相对路径（一般由「浏览…」给出绝对路径）。</param>
+    private void OpenOutputPaths(string workingDir)
+    {
+        foreach (var field in ParamFields)
+        {
+            if (!field.Param.OpenAfterRun) continue;
+
+            var raw = field.Value.Trim();
+            if (raw.Length == 0) continue; // 允许留空的参数（如导出全部时的代码）无路径可开
+
+            try
+            {
+                var path = Path.IsPathRooted(raw) ? raw : Path.GetFullPath(Path.Combine(workingDir, raw));
+                if (Directory.Exists(path))
+                    StartExplorer($"\"{path}\"");
+                else if (File.Exists(path))
+                    StartExplorer($"/select,\"{path}\"");
+                else
+                    continue; // 路径不存在（脚本未写出）→ 不强开
+
+                OnLog(_runSession, LogEntry.Level.System, string.Format(Strings.LogOpenedOutputPathFormat, path));
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[MainViewModel] 打开输出位置失败：{ex.Message}");
+            }
+        }
+    }
+
+    /// <summary>在资源管理器中打开目录 / 选中文件（与「导出」完成后的行为一致）。</summary>
+    private static void StartExplorer(string arguments) =>
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = "explorer.exe",
+            Arguments = arguments,
+            UseShellExecute = true
+        });
+
     /// <summary>
     /// 按语言返回临时文件的扩展名，保证运行时能正确识别脚本（如 java→java、python→py）。
     /// 未登记的语言回退到原脚本扩展名。

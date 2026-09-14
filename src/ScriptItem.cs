@@ -127,6 +127,14 @@ public class ScriptParam
     [System.Text.Json.Serialization.JsonPropertyName("type")]
     public string? Type { get; set; }
 
+    /// <summary>
+    /// 执行成功后是否自动在资源管理器打开本参数指向的路径（可选，默认 <c>false</c>）。
+    /// 配合 <c>type</c> 使用：目录参数 → 打开该目录；文件参数 → 打开所在目录并选中该文件。
+    /// 典型场景是导出类脚本的「导出目录」，跑完直接弹出结果目录，省去手动翻找。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonPropertyName("open_after_run")]
+    public bool OpenAfterRun { get; set; }
+
     // ---- 运行时：用户当前输入的值 ----
     /// <summary>运行时用户输入的值（不来自 json）</summary>
     public string CurrentValue { get; set; } = string.Empty;

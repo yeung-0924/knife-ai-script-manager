@@ -135,5 +135,7 @@ public static class Strings
     // 执行超时（{0} = 超时秒数）：自动终止进程树
     public const string LogTimeoutFormat = "✗ 执行超时（{0} 秒），已自动终止进程";
     public const string LogElevatedFailFormat = "✗ 提权执行失败：{0}";
+    // 执行成功后按参数声明自动打开输出位置（{0} = 被打开的目录或文件路径）
+    public const string LogOpenedOutputPathFormat = "▸ 已打开输出位置：{0}";
     #endregion
 }
