@@ -226,7 +226,14 @@ function Publish-Exe {
     Write-Host "==> 发布（$sc 内置 .NET）-> $publishDir"
     # 用 cmd /c 包装执行，避免 PowerShell 把 dotnet 的 stderr 输出误报为 NativeCommandError/RemoteException，
     # 从而掩盖真实编译结果（成功/失败）。cmd 内部 2>&1 让 stdout/stderr 原样透出，退出码由 $LASTEXITCODE 捕获。
-    cmd /c "`"$DotNet`" publish `"$srcDir`" -c $Configuration -r $Runtime --self-contained $sc -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o `"$publishDir`" 2>&1"
+    # ⚠️ -p:RuntimeIdentifiers=$Runtime 这行不能删，它是「首次构建慢」的根治点。
+    #    csproj 里写的是 <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>（两个架构），
+    #    而只要该属性含多个值，RID 特定还原（RID-specific restore）就会把**每个架构**的运行时包
+    #    全部下载：实测 7 个包 / 641.9 MB，其中 ARM64 那套 337.6 MB 在 x64 机器上是纯浪费。
+    #    收窄成单个目标架构后只剩 3 个包 / 304.3 MB（少下 52.6%）。
+    #    注意：这与 --self-contained 无关 —— 标准版（依赖框架）同样会被拉动这 641.9 MB，
+    #    哪怕它运行时一个运行时包都用不到。故两版都必须收窄。
+    cmd /c "`"$DotNet`" publish `"$srcDir`" -c $Configuration -r $Runtime -p:RuntimeIdentifiers=$Runtime --self-contained $sc -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o `"$publishDir`" 2>&1"
     $exitCode = $LASTEXITCODE
 
     if ($exitCode -ne 0) {

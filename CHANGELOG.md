@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 构建（首次构建提速）
+- 发布命令显式把 `RuntimeIdentifiers` 收窄为**单个目标架构**（`-p:RuntimeIdentifiers=$Runtime`）。
+  根因：csproj 声明的是 `<RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>`，而**只要该属性含多个值，
+  RID 特定还原就会把两个架构的运行时包全部拉下来**——实测 7 个包 / 641.9 MB，其中 ARM64 那套 337.6 MB
+  在 x64 机器上完全用不到。收窄后只剩 3 个包 / 304.3 MB，**首次构建的下载量减少约 52%**。
+- 该现象**与 `--self-contained` 无关**：标准版（依赖框架）本不需要任何运行时包，此前同样会把 641.9 MB 下完，
+  故便携版与标准版两处发布都收窄。纯构建期属性，产物与产物结构不变。
+
 ### 新增脚本
 - **`爬虫 ▸ 中国行政区划`**（Python，`script/crawler/fetch_xzqh.py`）：从民政部·国家地名信息库抓取全国行政区划并导出，四个参数——
   - **导出目录**（必选，文件夹选择框）：结果文件写入该目录；
