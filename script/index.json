@@ -12,6 +12,10 @@
     "include": "./toolkit/index.json"
   },
   {
+    "name": "爬虫",
+    "include": "./crawler/index.json"
+  },
+  {
     "name": "运行时环境",
     "include": "./runtime/index.json"
   },
