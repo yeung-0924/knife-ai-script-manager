@@ -647,6 +647,9 @@ public class MainViewModel : ViewModelBase
     {
         if (!File.Exists(indexPath))
             return;
+        // 读索引前先做一次 id 自动迁移：给缺 id 的条目补 GUID 并写回，
+        // 保证树节点（含目录）都携带唯一标识，右键的重命名/删除/编辑按 id 定位（允许同级同名）。
+        try { ScriptIndexStore.EnsureIds(); } catch { /* 迁移失败不阻塞树构建，后续操作会再尝试 */ }
         // 索引为嵌套结构：目录节点（name + children）与脚本节点（name + path）按 children 递归还原层级
         var items = ConfigLoader.LoadIndex(indexPath);
         BuildNodes(roots, items, "");
@@ -664,13 +667,13 @@ public class MainViewModel : ViewModelBase
 
             if (it.IsGroup)
             {
-                var groupNode = new ScriptTreeItem(ScriptTreeItem.NodeKind.Group, it.Name, path: path);
+                var groupNode = new ScriptTreeItem(ScriptTreeItem.NodeKind.Group, it.Name, path: path, entryId: it.Id);
                 target.Add(groupNode);
                 BuildNodes(groupNode.Children, it.Children!, path);
             }
             else
             {
-                target.Add(new ScriptTreeItem(ScriptTreeItem.NodeKind.Script, it.Name, it, path: path));
+                target.Add(new ScriptTreeItem(ScriptTreeItem.NodeKind.Script, it.Name, it, path: path, entryId: it.Id));
             }
         }
     }

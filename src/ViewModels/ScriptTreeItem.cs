@@ -21,6 +21,12 @@ public class ScriptTreeItem : ViewModelBase
     /// <summary>仅脚本项有值，指向 ScriptItem 实体。</summary>
     public ScriptItem? Item { get; }
 
+    /// <summary>
+    /// 条目唯一标识（index.json 的 id，GUID）。允许同级同名，右键的重命名/删除/编辑等
+    /// 索引操作一律按此定位条目；索引经 ScriptIndexStore 自动迁移后所有条目均有值。
+    /// </summary>
+    public string? EntryId { get; }
+
     /// <summary>稳定路径标识（如 "自定义脚本/网络/show-ip"），用于跨刷新匹配展开/选中状态。</summary>
     public string Path { get; }
 
@@ -111,11 +117,12 @@ public class ScriptTreeItem : ViewModelBase
         }
     }
 
-    public ScriptTreeItem(NodeKind kind, string name, ScriptItem? item = null, string path = "")
+    public ScriptTreeItem(NodeKind kind, string name, ScriptItem? item = null, string path = "", string? entryId = null)
     {
         Kind = kind;
         Name = name;
         Item = item;
         Path = path;
+        EntryId = entryId ?? item?.Id;
     }
 }

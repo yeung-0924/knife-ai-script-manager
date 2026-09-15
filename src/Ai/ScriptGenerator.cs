@@ -8,8 +8,11 @@ namespace ScriptManager.Ai;
 /// <summary>AI 生成结果：一个可被 ScriptManager 加载运行的脚本及其索引条目。</summary>
 public class AiGeneratedScript
 {
+    /// <summary>条目唯一 id（GUID）。创建流程落盘前由 <see cref="ScriptGenerator.BuildEntry"/> 补齐；编辑模式沿用原条目的 id。</summary>
+    public string? Id { get; set; }
+
     public string Name { get; set; } = "";
-    /// <summary>脚本文件名（含扩展名），落到 script/ai-generated/ 下；已做路径安全化。</summary>
+    /// <summary>AI 建议的文件名（仅作扩展名参考）；物理文件实际由程序按「{id}.{ext}」命名。</summary>
     public string FileName { get; set; } = "";
     public string Lang { get; set; } = "python";
     public string Description { get; set; } = "";
@@ -31,13 +34,11 @@ public class AiGeneratedParam
 
 /// <summary>
 /// AI 脚本生成器：拼装 system prompt（script-writer 技能全文 + 生成约束与 JSON schema）、调用 <see cref="AiClient"/>、
-/// 解析结构化 JSON、把脚本写到 script/ai-generated/。同时支持「编辑」模式：载入现有脚本内容让 AI 按描述改写。
-/// 脚本文件统一落在 ai-generated/ 隔离目录；索引条目由调用方经 <see cref="ScriptIndexStore"/> 写入唯一的 script/index.json。
+/// 解析结构化 JSON、把脚本以「{id}.{ext}」平铺写到 script 目录。同时支持「编辑」模式：载入现有脚本内容让 AI 按描述改写。
+/// 索引条目由调用方经 <see cref="ScriptIndexStore"/> 写入唯一的 script/index.json。
 /// </summary>
 public static class ScriptGenerator
 {
-    private const string GenDir = "ai-generated";
-
     /// <summary>system prompt = script-writer 技能全文 + 生成约束与 JSON schema。</summary>
     public static string BuildSystemPrompt()
     {
@@ -66,7 +67,8 @@ public static class ScriptGenerator
   ""content"": ""脚本完整源码（UTF-8 无 BOM，含 _p{参数名} 占位符，头含更新时间）""
 }");
         sb.AppendLine("5. params 字段说明：name 必填（全大写 + 下划线）；label 为界面标签；type 可选 text/folder/file/select（默认 text）；required 布尔（默认 false）；options 仅 select 时给字符串数组；default/placeholder 可选；open_after_run 仅导出类「目录」参数设为 true。");
-        sb.AppendLine("6. 仅返回纯 JSON，便于程序解析。");
+        sb.AppendLine("6. 物理脚本文件由程序按「UUID.扩展名」命名并平铺存放，无需遵循上方指南中的文件命名规则；file_name 字段可省略（仅当语言难以推断扩展名时参考）。");
+        sb.AppendLine("7. 仅返回纯 JSON，便于程序解析。");
         return sb.ToString();
     }
 
@@ -162,8 +164,6 @@ public static class ScriptGenerator
             }
         }
 
-        if (string.IsNullOrWhiteSpace(result.FileName))
-            throw new InvalidOperationException("AI 未返回有效的 file_name。");
         if (string.IsNullOrWhiteSpace(result.Content))
             throw new InvalidOperationException("AI 未返回脚本内容。");
         return result;
@@ -176,35 +176,46 @@ public static class ScriptGenerator
         return entry.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
     }
 
-    /// <summary>文件名安全化：只取文件名，去掉任何路径分隔与前导点，避免目录穿越；空则给时间戳兜底名。</summary>
-    public static string SafeFileName(AiGeneratedScript script)
+    /// <summary>
+    /// 脚本物理文件名：{id}.{lang 对应扩展名}（平铺在 script 目录下，与 index.json 同级）。
+    /// lang 无映射时回退 AI 建议文件名的扩展名，再回退 .txt。id 缺失时补新 id。
+    /// </summary>
+    public static string FileNameFor(AiGeneratedScript script)
     {
-        var safeName = Path.GetFileName(script.FileName.Replace('/', '\\').Trim().TrimStart('\\', '.'));
-        if (string.IsNullOrWhiteSpace(safeName))
-            safeName = "script_" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".py";
-        return safeName;
+        script.Id ??= ScriptIndexStore.NewId();
+        var ext = ScriptIndexStore.FileExtensionForLang(script.Lang);
+        if (string.IsNullOrEmpty(ext))
+        {
+            var fromName = Path.GetExtension(script.FileName ?? "");
+            ext = fromName.Length > 0 ? fromName : ".txt";
+        }
+        return script.Id + ext;
     }
 
     /// <summary>
-    /// 只把生成的脚本写到 script/ai-generated/（文件隔离目录），不触碰索引；
-    /// 索引条目由调用方经 <see cref="ScriptIndexStore"/> 插入唯一的 script/index.json。返回脚本文件完整路径。
+    /// 把生成的脚本写到 script 目录（{id}.{ext} 平铺命名，与 index.json 同级），不触碰索引；
+    /// 索引条目由调用方经 <see cref="ScriptIndexStore"/> 插入。返回脚本文件完整路径。
     /// </summary>
     public static string WriteScriptFile(AiGeneratedScript script)
     {
-        var baseDir = Path.Combine(AppConfig.ScriptDir, GenDir);
-        Directory.CreateDirectory(baseDir);
-        var scriptPath = Path.Combine(baseDir, SafeFileName(script));
+        var fileName = FileNameFor(script);
+        var scriptPath = Path.Combine(AppConfig.ScriptDir, fileName);
         File.WriteAllText(scriptPath, script.Content, new UTF8Encoding(false));
         return scriptPath;
     }
 
-    /// <summary>构建该脚本对应的索引条目（path 固定指向 ai-generated/ 下的文件，相对 script 根目录）。</summary>
+    /// <summary>
+    /// 构建该脚本对应的索引条目：id + path（./&lt;id&gt;.&lt;ext&gt;，相对 script 根目录）按唯一约定生成；
+    /// 编辑模式沿用原条目 id（script.Id 已在载入种子时赋值）。
+    /// </summary>
     public static JsonObject BuildEntry(AiGeneratedScript script)
     {
+        var fileName = FileNameFor(script);
         var entry = new JsonObject
         {
+            ["id"] = script.Id,
             ["name"] = script.Name,
-            ["path"] = "./" + GenDir + "/" + SafeFileName(script),
+            ["path"] = "./" + fileName,
             ["lang"] = script.Lang
         };
         if (script.Params.Count > 0)
@@ -237,13 +248,21 @@ public static class ScriptGenerator
 /// 与 AI 的多轮对话（system prompt 固定为 script-writer 生成约束，历史消息含此前各轮的 user/assistant 原文）。
 /// 每轮 <see cref="SendAsync"/> 流式返回并解析为 <see cref="AiGeneratedScript"/>；解析成功才把 assistant
 /// 回复写入历史，失败则回退本轮 user 消息（下次发送不残留半截对话）。
+/// 对话历史持久化到缓存：每个脚本一个以脚本 id（UUID）命名的文件夹，每次编辑会话一个文件
+/// （同一会话内每轮成功后覆盖更新）；删除脚本时不清理对应缓存（历史保留）。
 /// </summary>
 public sealed class AiConversation
 {
     private readonly List<Dictionary<string, string>> _messages = new();
+    // 会话起始时间：用作缓存文件名（一次编辑会话 = 一个文件）
+    private readonly DateTime _startedAt = DateTime.Now;
+    private string? _cacheFile;
 
     internal AiConversation(string systemPrompt)
         => _messages.Add(new() { ["role"] = "system", ["content"] = systemPrompt });
+
+    /// <summary>脚本 id（缓存文件夹名）。首轮结果产生后由窗口赋值；未赋值前持久化跳过。</summary>
+    public string? ScriptId { get; set; }
 
     /// <summary>
     /// 发送一轮新的用户消息（instruction 为完整用户内容），流式回调增量，返回解析后的脚本结果。
@@ -262,6 +281,34 @@ public sealed class AiConversation
         {
             _messages.RemoveAt(_messages.Count - 1);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// 把当前对话历史持久化到缓存（cache/{脚本id}/{会话起始时间}.json）。
+    /// 写失败只吞掉（缓存是辅助产物，不影响生成主流程）。
+    /// </summary>
+    public void PersistToCache()
+    {
+        if (string.IsNullOrWhiteSpace(ScriptId)) return;
+        try
+        {
+            _cacheFile ??= Path.Combine(AppConfig.CacheDir, ScriptId!, _startedAt.ToString("yyyyMMdd-HHmmss") + ".json");
+            Directory.CreateDirectory(Path.GetDirectoryName(_cacheFile)!);
+            var messages = new JsonArray();
+            foreach (var m in _messages)
+                messages.Add(new JsonObject { ["role"] = m["role"], ["content"] = m["content"] });
+            var root = new JsonObject
+            {
+                ["script_id"] = ScriptId,
+                ["started_at"] = _startedAt.ToString("yyyy-MM-dd HH:mm:ss"),
+                ["messages"] = messages
+            };
+            File.WriteAllText(_cacheFile, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+        }
+        catch
+        {
+            // 缓存写失败不影响主流程
         }
     }
 }

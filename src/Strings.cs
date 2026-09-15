@@ -57,7 +57,6 @@ public static class Strings
     public const string AiGenEditLabel = "修改要求（要改什么，越具体越好）";
     public const string AiGenEditPlaceholder = "描述要如何修改这个脚本（如：增加一个「重试次数」参数，失败时自动重试；把语言改成 pwsh）…";
     public const string AiGenPreviewScript = "脚本预览（生成后展示，接受前可检查）";
-    public const string AiGenPreviewIndex = "将写入 index.json 的条目";
     public const string BtnAiGenerate = "生成";
     public const string BtnAiAccept = "接受并写入";
     public const string AiStatusNoApi = "未配置 AI API：请到「设置 ▸ 编辑配置」填写 API 密钥 / 地址 / 模型";
@@ -85,6 +84,7 @@ public static class Strings
     public const string TreeMenuCreateDir = "创建目录";
     public const string TreeMenuCreateScript = "创建脚本（AI）";
     public const string TreeMenuEditScript = "编辑脚本";
+    public const string TreeMenuRename = "重命名";
     public const string TreeMenuDeleteDir = "删除目录";
     public const string TreeMenuDeleteScript = "删除脚本";
     // 二次确认文案（{0} = 节点名）
@@ -97,6 +97,9 @@ public static class Strings
     #region 输入对话框（新建目录等）
     public const string TitleInputNewDir = "新建目录";
     public const string InputNewDirPrompt = "目录名称：";
+    public const string TitleInputRename = "重命名";
+    public const string InputRenamePrompt = "新名称（重命名只改显示名，不移动/改名脚本文件；同级内脚本允许同名，目录名需同级唯一）：";
+    public const string TreeRenameNoId = "该条目缺少唯一标识（id），无法重命名。请重启应用让索引自动补齐后重试。";
     public const string BtnOk = "确定";
     public const string BtnCancel = "取消";
     #endregion

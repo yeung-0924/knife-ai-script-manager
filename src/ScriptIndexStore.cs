@@ -6,11 +6,12 @@ using System.Text.Json.Nodes;
 namespace ScriptManager;
 
 /// <summary>
-/// 唯一脚本索引（script/index.json）的读写层。索引已归集为单文件（不再用 include 分片），
-/// 脚本树右键菜单的「创建目录 / 创建脚本 / 编辑 / 删除」全部经本类按「树路径」定位条目后修改并整体写回。
-/// 树路径 = 各级 name 以 / 相连（与 <see cref="ScriptTreeItem.Path"/> 同一约定）；
-/// 定位时逐级在兄弟节点中匹配首个同名节点，因此同级重名时只作用于第一个。
-/// 所有写操作都是「整文件读 → 改 → 整文件写」，UTF-8 无 BOM、缩进 2 空格，与手写格式一致。
+/// 唯一脚本索引（script/index.json）的读写层。索引为单文件，脚本树右键菜单的
+/// 「创建目录 / 创建脚本 / 重命名 / 编辑 / 删除」全部经本类按条目 id（GUID）定位后修改并整体写回。
+/// 允许脚本同级同名，故一律不用名字定位；条目缺 id 时在首次读写时自动补齐（旧索引零迁移成本）。
+/// 物理布局：所有脚本文件以「{id}.{扩展名}」平铺在 script 目录下（与 index.json 同级），
+/// 条目的 path 字段固定为 ./&lt;id&gt;.&lt;ext&gt;；重命名 / 层级移动只改 JSON，不动物理文件。
+/// 所有写操作都是「整文件读 → 改 → 整文件写」，UTF-8 无 BOM、缩进 2 空格。
 /// </summary>
 public static class ScriptIndexStore
 {
@@ -19,94 +20,200 @@ public static class ScriptIndexStore
     /// <summary>唯一索引文件完整路径（动态取 AppConfig，使「文件▸打开」切换索引后即时生效）。</summary>
     public static string IndexPath => ConfigLoader.ScriptIndexJson;
 
-    /// <summary>读取唯一索引根数组；文件缺失或为空时返回空数组。</summary>
+    /// <summary>生成新的条目 id（GUID，标准带连字符格式）。</summary>
+    public static string NewId() => Guid.NewGuid().ToString("D");
+
+    /// <summary>脚本语言 → 物理文件扩展名（脚本按 {id}.{ext} 平铺命名）；无映射返回 null（沿用原扩展名）。</summary>
+    public static string? FileExtensionForLang(string? lang) => lang?.ToLowerInvariant() switch
+    {
+        ScriptLangs.Python => ".py",
+        ScriptLangs.Node => ".js",
+        ScriptLangs.Cmd => ".cmd",
+        ScriptLangs.PowerShell => ".ps1",
+        ScriptLangs.Pwsh => ".ps1",
+        ScriptLangs.Bash => ".sh",
+        ScriptLangs.Java => ".java",
+        ScriptLangs.Go => ".go",
+        ScriptLangs.Rust => ".rs",
+        _ => null
+    };
+
+    /// <summary>
+    /// 读取唯一索引根数组，并为缺少 id 的条目自动补 GUID（有补齐则整体写回）。
+    /// 旧索引无需手工迁移；文件缺失或为空时返回空数组。
+    /// </summary>
     public static JsonArray LoadRoot()
     {
         if (!File.Exists(IndexPath))
             return new JsonArray();
+        JsonArray root;
         try
         {
-            return JsonNode.Parse(File.ReadAllText(IndexPath, new UTF8Encoding(false)))?.AsArray() ?? new JsonArray();
+            root = JsonNode.Parse(File.ReadAllText(IndexPath, new UTF8Encoding(false)))?.AsArray()
+                   ?? new JsonArray();
         }
         catch (Exception ex)
         {
             throw new InvalidOperationException("索引 json 解析失败：" + IndexPath + "（" + ex.Message + "）");
         }
+        if (AssignMissingIds(root))
+            Save(root);
+        return root;
+    }
+
+    /// <summary>确保索引中所有条目都有 id（缺则补齐并写回）。供树构建前调用，保证节点可被 id 定位。</summary>
+    public static void EnsureIds()
+    {
+        if (!File.Exists(IndexPath))
+            return;
+        _ = LoadRoot();
     }
 
     /// <summary>把根数组整体写回唯一索引文件。</summary>
     public static void Save(JsonArray root)
         => File.WriteAllText(IndexPath, root.ToJsonString(Pretty), new UTF8Encoding(false));
 
-    /// <summary>在指定目录节点（null = 根层级）下新建一个空目录条目。同级重名时报错。</summary>
-    public static void AddGroup(string? parentPath, string name)
+    /// <summary>递归给缺 id 的条目补 id（id 置于首位）。返回是否有改动。</summary>
+    private static bool AssignMissingIds(JsonArray arr)
+    {
+        var changed = false;
+        for (var i = 0; i < arr.Count; i++)
+        {
+            if (arr[i] is not JsonObject o) continue;
+            var id = o["id"]?.GetValue<string>();
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                // 重建对象把 id 放到首位，其余键原序保留
+                var clone = new JsonObject { ["id"] = NewId() };
+                foreach (var kv in o)
+                    clone[kv.Key] = kv.Value?.DeepClone();
+                arr[i] = clone;
+                o = clone;
+                changed = true;
+            }
+            if (o["children"] is JsonArray children)
+                changed |= AssignMissingIds(children);
+        }
+        return changed;
+    }
+
+    /// <summary>在指定目录条目（parentId 为空 = 根层级）下新建一个空目录条目。同级重名时报错。</summary>
+    public static void AddGroup(string? parentId, string name)
     {
         var root = LoadRoot();
-        var target = ResolveTargetArray(root, parentPath);
-        EnsureSiblingNameFree(target, name);
-        target.Add(new JsonObject { ["name"] = name, ["children"] = new JsonArray() });
+        var target = ResolveTargetArray(root, parentId);
+        EnsureSiblingNameFree(target, name, selfId: null);
+        target.Add(new JsonObject { ["id"] = NewId(), ["name"] = name, ["children"] = new JsonArray() });
         Save(root);
     }
 
-    /// <summary>在指定目录节点（null = 根层级）下追加一个脚本条目。同级重名时报错。</summary>
-    public static void AddScriptEntry(string? parentPath, JsonObject entry)
+    /// <summary>在指定目录条目（parentId 为空 = 根层级）下追加一个脚本条目。条目缺 id 时自动补。同级重名时报错。</summary>
+    public static void AddScriptEntry(string? parentId, JsonObject entry)
     {
         var root = LoadRoot();
-        var target = ResolveTargetArray(root, parentPath);
+        var target = ResolveTargetArray(root, parentId);
+        if (string.IsNullOrWhiteSpace(entry["id"]?.GetValue<string>()))
+        {
+            // id 放首位重建，其余键原序保留
+            var clone = new JsonObject { ["id"] = NewId() };
+            foreach (var kv in entry)
+                clone[kv.Key] = kv.Value?.DeepClone();
+            entry = clone;
+        }
         var name = entry["name"]?.GetValue<string>() ?? "";
-        EnsureSiblingNameFree(target, name);
+        EnsureSiblingNameFree(target, name, selfId: null);
         target.Add(entry);
         Save(root);
     }
 
     /// <summary>
-    /// 更新脚本条目（编辑模式）：按旧树路径定位，仅替换 name / lang / params 三个字段，
-    /// 其余字段（path、hide、open_after_run 等）与 key 顺序原样保留——文件位置不变。
+    /// 重命名条目（目录或脚本，按 id 定位）：仅改显示名 name。
+    /// 物理文件（脚本按 id 命名平铺）不受影响；层级移动同理只需改 JSON 结构，均不动文件。
+    /// 同级重名时报错（排除自身）。
     /// </summary>
-    public static void UpdateScriptEntry(string treePath, JsonObject entry)
+    public static void RenameEntry(string entryId, string newName)
     {
         var root = LoadRoot();
-        var node = FindByPath(root, treePath)
-            ?? throw new InvalidOperationException("未找到待更新的脚本条目：" + treePath);
-        node["name"] = entry["name"]?.GetValue<string>() ?? node["name"]?.GetValue<string>() ?? "";
-        if (entry["lang"] is not null) node["lang"] = entry["lang"]!.DeepClone();
-        if (entry["params"] is not null) node["params"] = entry["params"]!.DeepClone();
-        else node.Remove("params");
+        var parentArr = FindParentArrayById(root, entryId)
+                        ?? throw new InvalidOperationException("未找到待重命名的条目：" + entryId);
+        var node = FindInArrayById(parentArr, entryId)
+                   ?? throw new InvalidOperationException("未找到待重命名的条目：" + entryId);
+        EnsureSiblingNameFree(parentArr, newName, selfId: entryId);
+        node["name"] = newName;
         Save(root);
     }
 
     /// <summary>
-    /// 按树路径删除条目并写回。返回被删条目（脚本删除时可据此取 path 删文件）。
-    /// 只动索引：目录删除不递归删物理文件，脚本删除是否连文件一起删由调用方决定。
+    /// 更新脚本条目（编辑模式，按 id 定位）：仅替换 name / lang / params 三个字段，
+    /// 其余字段（id、path、hide 等）与 key 顺序原样保留。
+    /// 若 lang 变更，物理文件（{id}.{ext} 平铺命名）的扩展名随之改名，并同步更新条目 path。
     /// </summary>
-    public static JsonObject RemoveEntry(string treePath)
+    public static void UpdateScriptEntry(string entryId, JsonObject entry)
     {
         var root = LoadRoot();
-        var arr = FindParentArray(root, treePath)
-            ?? throw new InvalidOperationException("未找到待删除条目的父级：" + treePath);
-        var last = treePath.Split('/')[^1];
+        var node = FindById(root, entryId)
+                   ?? throw new InvalidOperationException("未找到待更新的脚本条目：" + entryId);
+        var oldLang = node["lang"]?.GetValue<string>();
+        var oldPath = node["path"]?.GetValue<string>();
+
+        node["name"] = entry["name"]?.GetValue<string>() ?? node["name"]?.GetValue<string>() ?? "";
+        if (entry["lang"] is not null) node["lang"] = entry["lang"]!.DeepClone();
+        if (entry["params"] is not null) node["params"] = entry["params"]!.DeepClone();
+        else node.Remove("params");
+
+        // 语言变更 → 物理文件扩展名跟随（脚本按 {id}.{ext} 平铺，改名文件 + 更新 path）
+        var newLang = node["lang"]?.GetValue<string>();
+        if (!string.Equals(oldLang, newLang, StringComparison.OrdinalIgnoreCase))
+        {
+            var id = node["id"]?.GetValue<string>();
+            var oldExt = Path.GetExtension(oldPath ?? "");
+            var newExt = FileExtensionForLang(newLang) ?? (oldExt.Length > 0 ? oldExt : ".txt");
+            if (!string.IsNullOrWhiteSpace(id) && !string.Equals(oldExt, newExt, StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(oldPath))
+            {
+                var oldFile = Path.GetFullPath(Path.Combine(ConfigLoader.ScriptDir, oldPath));
+                var newRel = "./" + id + newExt;
+                var newFile = Path.GetFullPath(Path.Combine(ConfigLoader.ScriptDir, newRel));
+                if (File.Exists(oldFile))
+                    File.Move(oldFile, newFile, overwrite: true);
+                node["path"] = newRel;
+            }
+        }
+
+        Save(root);
+    }
+
+    /// <summary>
+    /// 按 id 删除条目并写回。返回被删条目（脚本删除时可据此取 path 清理物理文件）。
+    /// 目录删除只移除索引子树，不递归删物理文件（脚本文件按 id 平铺、互不嵌套，删除脚本时单独清）。
+    /// </summary>
+    public static JsonObject RemoveEntry(string entryId)
+    {
+        var root = LoadRoot();
+        var arr = FindParentArrayById(root, entryId)
+                  ?? throw new InvalidOperationException("未找到待删除条目的父级：" + entryId);
         for (var i = 0; i < arr.Count; i++)
         {
             if (arr[i] is JsonObject o
-                && string.Equals(o["name"]?.GetValue<string>(), last, StringComparison.Ordinal))
+                && string.Equals(o["id"]?.GetValue<string>(), entryId, StringComparison.Ordinal))
             {
                 arr.RemoveAt(i);
                 Save(root);
                 return o;
             }
         }
-        throw new InvalidOperationException("未找到待删除的条目：" + treePath);
+        throw new InvalidOperationException("未找到待删除的条目：" + entryId);
     }
 
     // ---- 内部：定位与校验 ----
 
-    /// <summary>解析写入目标数组：parentPath 为空 → 根数组；否则取该目录节点的 children（无则建）。</summary>
-    private static JsonArray ResolveTargetArray(JsonArray root, string? parentPath)
+    /// <summary>解析写入目标数组：parentId 为空 → 根数组；否则取该目录条目的 children（无则建）。</summary>
+    private static JsonArray ResolveTargetArray(JsonArray root, string? parentId)
     {
-        if (string.IsNullOrEmpty(parentPath))
+        if (string.IsNullOrEmpty(parentId))
             return root;
-        var parent = FindByPath(root, parentPath)
-            ?? throw new InvalidOperationException("未找到目标目录：" + parentPath);
+        var parent = FindById(root, parentId)
+                     ?? throw new InvalidOperationException("未找到目标目录：" + parentId);
         if (parent["children"] is JsonArray a)
             return a;
         var created = new JsonArray();
@@ -114,49 +221,60 @@ public static class ScriptIndexStore
         return created;
     }
 
-    private static void EnsureSiblingNameFree(JsonArray arr, string name)
+    /// <summary>同级重名校验；selfId 用于重命名时排除自身（同名条目通过 id 区分彼此）。</summary>
+    private static void EnsureSiblingNameFree(JsonArray arr, string name, string? selfId)
     {
         foreach (var n in arr)
         {
-            if (n is JsonObject o
-                && string.Equals(o["name"]?.GetValue<string>(), name, StringComparison.Ordinal))
+            if (n is not JsonObject o) continue;
+            if (selfId != null
+                && string.Equals(o["id"]?.GetValue<string>(), selfId, StringComparison.Ordinal))
+                continue;
+            if (string.Equals(o["name"]?.GetValue<string>(), name, StringComparison.Ordinal))
                 throw new InvalidOperationException("同级已存在同名条目：" + name);
         }
     }
 
-    /// <summary>按树路径查找条目；找不到返回 null。</summary>
-    public static JsonObject? FindByPath(JsonArray root, string treePath)
+    /// <summary>递归按 id 查找条目；找不到返回 null。</summary>
+    public static JsonObject? FindById(JsonArray arr, string id)
     {
-        if (string.IsNullOrEmpty(treePath))
-            return null;
-        var arr = FindParentArray(root, treePath);
-        if (arr == null) return null;
-        return FindInArray(arr, treePath.Split('/')[^1]);
-    }
-
-    /// <summary>取树路径倒数第二级节点的 children（首级则为根数组）；中途缺目录返回 null。</summary>
-    private static JsonArray? FindParentArray(JsonArray root, string treePath)
-    {
-        var segs = treePath.Split('/');
-        var arr = root;
-        for (var i = 0; i < segs.Length - 1; i++)
+        foreach (var n in arr)
         {
-            var node = FindInArray(arr, segs[i]);
-            if (node == null)
-                return null;
-            if (node["children"] is not JsonArray a)
-                return null;
-            arr = a;
+            if (n is not JsonObject o) continue;
+            if (string.Equals(o["id"]?.GetValue<string>(), id, StringComparison.Ordinal))
+                return o;
+            if (o["children"] is JsonArray c)
+            {
+                var hit = FindById(c, id);
+                if (hit != null) return hit;
+            }
         }
-        return arr;
+        return null;
     }
 
-    private static JsonObject? FindInArray(JsonArray arr, string name)
+    /// <summary>递归查找包含指定 id 条目的数组（其父级 children 或根数组）。</summary>
+    private static JsonArray? FindParentArrayById(JsonArray arr, string id)
+    {
+        foreach (var n in arr)
+        {
+            if (n is not JsonObject o) continue;
+            if (string.Equals(o["id"]?.GetValue<string>(), id, StringComparison.Ordinal))
+                return arr;
+            if (o["children"] is JsonArray c)
+            {
+                var hit = FindParentArrayById(c, id);
+                if (hit != null) return hit;
+            }
+        }
+        return null;
+    }
+
+    private static JsonObject? FindInArrayById(JsonArray arr, string id)
     {
         foreach (var n in arr)
         {
             if (n is JsonObject o
-                && string.Equals(o["name"]?.GetValue<string>(), name, StringComparison.Ordinal))
+                && string.Equals(o["id"]?.GetValue<string>(), id, StringComparison.Ordinal))
                 return o;
         }
         return null;

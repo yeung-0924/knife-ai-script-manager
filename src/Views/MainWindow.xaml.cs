@@ -248,14 +248,16 @@ public partial class MainWindow : Window
         }
         else
         {
-            // 脚本节点：编辑 + 删除
+            // 脚本节点：编辑 + 重命名 + 删除
             cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuEditScript, "pencil.svg", TreeEditScript_Click));
+            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuRename, "pencil.svg", TreeRename_Click));
             cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuDeleteScript, "trash-2.svg", TreeDeleteScript_Click));
         }
 
         if (node is { Kind: ScriptTreeItem.NodeKind.Group })
         {
             cm.Items.Add(new Separator());
+            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuRename, "pencil.svg", TreeRename_Click));
             cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuDeleteDir, "trash-2.svg", TreeDeleteDir_Click));
         }
         return cm;
@@ -284,12 +286,12 @@ public partial class MainWindow : Window
     /// <summary>右键「创建目录」：目标 = 所点目录节点之下（面板空白 = 根层级）。输入名称 → 写唯一索引 → 刷新树。</summary>
     private void TreeCreateDir_Click(object sender, RoutedEventArgs e)
     {
-        var parentPath = _ctxNode is { Kind: ScriptTreeItem.NodeKind.Group } ? _ctxNode.Path : null;
+        var parentId = _ctxNode is { Kind: ScriptTreeItem.NodeKind.Group } g ? g.EntryId : null;
         var dlg = new InputDialog(Strings.TitleInputNewDir, Strings.InputNewDirPrompt) { Owner = this };
         if (dlg.ShowDialog() != true) return;
         try
         {
-            ScriptIndexStore.AddGroup(parentPath, dlg.Value);
+            ScriptIndexStore.AddGroup(parentId, dlg.Value);
             _vm.ReloadTree();
         }
         catch (System.Exception ex)
@@ -301,9 +303,38 @@ public partial class MainWindow : Window
     /// <summary>右键「创建脚本（AI）」：打开 AI 编辑器（创建模式），新条目将插入所点目录（面板空白 = 根层级）。</summary>
     private void TreeCreateScript_Click(object sender, RoutedEventArgs e)
     {
-        var parentPath = _ctxNode is { Kind: ScriptTreeItem.NodeKind.Group } ? _ctxNode.Path : null;
-        var dlg = new AiScriptGenWindow { Owner = this, OwnerViewModel = _vm, ParentGroupPath = parentPath };
+        var parentId = _ctxNode is { Kind: ScriptTreeItem.NodeKind.Group } g ? g.EntryId : null;
+        var dlg = new AiScriptGenWindow { Owner = this, OwnerViewModel = _vm, ParentGroupId = parentId };
         dlg.ShowDialog();
+    }
+
+    /// <summary>
+    /// 右键「重命名」（目录 / 脚本通用）：仅改显示名，不移动 / 改名物理文件。
+    /// 按条目 id 定位（允许脚本同级同名）；同级重名（目录）会拒绝并提示。
+    /// </summary>
+    private void TreeRename_Click(object sender, RoutedEventArgs e)
+    {
+        var node = _ctxNode;
+        if (node is not ({ Kind: ScriptTreeItem.NodeKind.Group } or { Kind: ScriptTreeItem.NodeKind.Script }))
+            return;
+        if (string.IsNullOrEmpty(node.EntryId))
+        {
+            MessageBox.Show(this, Strings.TreeRenameNoId, Strings.TitleWindow, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        var dlg = new InputDialog(Strings.TitleInputRename, Strings.InputRenamePrompt, node.Name) { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+        if (string.Equals(dlg.Value, node.Name, StringComparison.Ordinal))
+            return; // 名称未变，无需写索引
+        try
+        {
+            ScriptIndexStore.RenameEntry(node.EntryId!, dlg.Value);
+            _vm.ReloadTree();
+        }
+        catch (System.Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, Strings.TitleWindow, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     /// <summary>右键「编辑脚本」：载入现有脚本内容与参数作为种子，AI 按修改要求改写后覆盖原文件并更新索引条目。</summary>
@@ -327,6 +358,7 @@ public partial class MainWindow : Window
 
         var seed = new AiGeneratedScript
         {
+            Id = node.EntryId,
             Name = item.Name,
             FileName = System.IO.Path.GetFileName(item.ResolvedPath),
             Lang = item.Lang,
@@ -352,7 +384,7 @@ public partial class MainWindow : Window
             Owner = this,
             OwnerViewModel = _vm,
             EditSeed = seed,
-            EditTreePath = node.Path,
+            EditEntryId = node.EntryId,
             EditFilePath = item.ResolvedPath
         };
         dlg.ShowDialog();
@@ -369,7 +401,7 @@ public partial class MainWindow : Window
             return;
         try
         {
-            ScriptIndexStore.RemoveEntry(node.Path);
+            ScriptIndexStore.RemoveEntry(node.EntryId!);
             _vm.ReloadTree();
         }
         catch (System.Exception ex)
@@ -390,7 +422,7 @@ public partial class MainWindow : Window
             return;
         try
         {
-            var removed = ScriptIndexStore.RemoveEntry(node.Path);
+            var removed = ScriptIndexStore.RemoveEntry(node.EntryId!);
 
             // 删除脚本文件：以索引里记录的相对路径为准（限定 script 目录内，防条目被改过导致误删）
             var rel = removed["path"]?.GetValue<string>();

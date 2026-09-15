@@ -8,14 +8,15 @@ namespace ScriptManager.Views;
 
 /// <summary>
 /// 「AI 脚本编辑器」对话框，双模式：
-///  - 创建模式（默认）：在描述框写清脚本功能（可一并说明参数与语言），生成后脚本文件写入
-///    script/ai-generated/，索引条目经 <see cref="ScriptIndexStore"/> 插入 ParentGroupPath
-///    指向的目录节点（null = 根层级）下的唯一 script/index.json；
-///  - 编辑模式（EditSeed / EditTreePath / EditFilePath 由主窗口装配）：载入现有脚本让 AI 按修改要求改写，
-///    接受后覆盖原脚本文件并按旧树路径更新其索引条目（path 不变）。
-/// 两种模式都先在界面预览「脚本正文」与「索引条目」，手动点「接受并写入」才落盘并刷新脚本树。
-/// 生成过程为流式（模型回复实时刷进脚本预览区）；首轮成功后进入多轮对话模式——描述框清空、
-/// 占位符切换为追问提示，再次「生成」即把新修改要求连同历史上下文发给 AI 迭代改写。
+///  - 创建模式（默认）：在描述框写清脚本功能（可一并说明参数与语言），生成后脚本文件以
+///    「{id}.{ext}」平铺写入 script 目录，索引条目经 <see cref="ScriptIndexStore"/> 按 id 插入
+///    ParentGroupId 指向的目录节点（null = 根层级）下的唯一 script/index.json；
+///  - 编辑模式（EditSeed / EditEntryId / EditFilePath 由主窗口装配）：载入现有脚本让 AI 按修改要求改写，
+///    接受后覆盖原脚本文件并按条目 id 更新其索引条目（若语言变更，物理文件扩展名随之改名）。
+/// 生成过程为流式（模型回复实时刷进脚本预览区）；首轮成功后进入多轮对话——描述框清空、
+/// 占位符切换为追问提示，再次「生成」即带着历史上下文迭代改写，对话历史持久化到
+/// cache/{脚本id}/（每次编辑会话一个文件，删除脚本不清缓存）。
+/// 「接受并写入」即结束本次编辑会话：对话状态重置，下次生成重新发起（编辑模式直接关闭窗口）。
 /// 未配置 AI API 时禁用生成并提示先去「设置 ▸ 编辑配置」。
 /// </summary>
 public partial class AiScriptGenWindow : Window
@@ -23,21 +24,23 @@ public partial class AiScriptGenWindow : Window
     /// <summary>宿主主窗口视图模型，接受写入后用于触发左侧目录树重建；可为 null（防御性）。</summary>
     public MainViewModel? OwnerViewModel { get; set; }
 
-    /// <summary>创建模式：新脚本条目要插入的目标目录树路径（null = 根层级）。</summary>
-    public string? ParentGroupPath { get; set; }
+    /// <summary>创建模式：新脚本条目要插入的目标目录条目 id（null = 根层级）。</summary>
+    public string? ParentGroupId { get; set; }
 
-    /// <summary>编辑模式：被改写的现有脚本（内容 / 参数 / 语言种子）。</summary>
+    /// <summary>编辑模式：被改写的现有脚本（内容 / 参数 / 语言种子，Id 为原条目 id）。</summary>
     public AiGeneratedScript? EditSeed { get; set; }
 
-    /// <summary>编辑模式：被改写脚本在索引中的树路径（更新条目用）。</summary>
-    public string? EditTreePath { get; set; }
+    /// <summary>编辑模式：被改写脚本在索引中的条目 id（更新条目用，允许同级同名故不用名字定位）。</summary>
+    public string? EditEntryId { get; set; }
 
     /// <summary>编辑模式：脚本文件的完整路径（覆盖写入用）。</summary>
     public string? EditFilePath { get; set; }
 
     private AiGeneratedScript? _result;
-    // 多轮对话状态：首轮成功后保留，之后每次「生成」都作为追问发给 AI（历史含此前各轮原文）
+    // 多轮对话状态：首轮成功后保留，之后每次「生成」都作为追问发给 AI；「接受并写入」后重置
     private AiConversation? _conversation;
+    // 本会话内脚本的稳定 id：首轮分配 / 编辑模式取种子，追问轮沿用（文件名、索引条目、缓存目录都认它）
+    private string? _scriptId;
 
     private bool IsEditMode => EditSeed != null;
 
@@ -52,6 +55,7 @@ public partial class AiScriptGenWindow : Window
             DescPlaceholder.Text = Strings.AiGenEditPlaceholder;
             // 预览区先展示现状：脚本当前内容（此时「接受并写入」禁用，必须先按修改要求重新生成）
             ScriptPreview.Text = EditSeed!.Content;
+            _scriptId = EditSeed.Id;
             StatusText.Text = string.Format(Strings.AiStatusEditMode, EditSeed.Name);
         }
         else
@@ -78,11 +82,8 @@ public partial class AiScriptGenWindow : Window
         BtnGenerate.IsEnabled = false;
         BtnAccept.IsEnabled = false;
         ScriptPreview.Text = "";
-        IndexPreview.Text = "";
-        // 生成中：脚本预览区临时充当「实时回复」流式窗口，JSON 预览隐藏（此时还没有可解析的条目）
+        // 生成中：脚本预览区临时充当「实时回复」流式窗口
         PreviewScriptLabel.Text = Strings.AiGenStreamingLabel;
-        PreviewIndexLabel.Visibility = Visibility.Collapsed;
-        IndexPreview.Visibility = Visibility.Collapsed;
         StatusText.Text = Strings.AiStatusGenerating;
 
         // 流式增量回调：后台线程逐段追加，调度回 UI 线程刷新预览区并自动滚动
@@ -111,19 +112,16 @@ public partial class AiScriptGenWindow : Window
                 _result = await _conversation.SendAsync(desc + ScriptGenerator.FollowUpSuffix, OnDelta);
             }
 
-            // 完成：恢复预览区状态，显示解析后的脚本正文与索引条目
+            // 统一脚本 id：首轮分配 / 追问轮与编辑模式沿用（文件名、索引条目、缓存目录都以它为准）
+            _result.Id ??= _scriptId ?? EditSeed?.Id ?? ScriptIndexStore.NewId();
+            _scriptId = _result.Id;
+            // 对话历史持久化到 cache/{脚本id}/（每次编辑会话一个文件，覆盖更新）
+            _conversation.ScriptId = _scriptId;
+            _conversation.PersistToCache();
+
+            // 完成：恢复预览区标题，显示解析后的脚本正文
             PreviewScriptLabel.Text = Strings.AiGenPreviewScript;
-            PreviewIndexLabel.Visibility = Visibility.Visible;
-            IndexPreview.Visibility = Visibility.Visible;
             ScriptPreview.Text = _result.Content;
-            // 编辑模式 path 保持不变，条目预览中省略以免误导
-            var entry = ScriptGenerator.BuildEntry(_result);
-            if (IsEditMode)
-                entry.Remove("path");
-            IndexPreview.Text = entry.ToJsonString(new System.Text.Json.JsonSerializerOptions
-            {
-                WriteIndented = true
-            });
             StatusText.Text = Strings.AiStatusGenerated;
             BtnAccept.IsEnabled = true;
 
@@ -134,10 +132,7 @@ public partial class AiScriptGenWindow : Window
         catch (System.Exception ex)
         {
             _result = null;
-            // 恢复预览区常态（失败的轮次不留在对话历史里，下次生成仍从当前状态重试）
             PreviewScriptLabel.Text = Strings.AiGenPreviewScript;
-            PreviewIndexLabel.Visibility = Visibility.Visible;
-            IndexPreview.Visibility = Visibility.Visible;
             StatusText.Text = string.Format(Strings.AiStatusGenFail, ex.Message);
             BtnAccept.IsEnabled = false;
         }
@@ -154,25 +149,42 @@ public partial class AiScriptGenWindow : Window
         {
             if (IsEditMode)
             {
-                // 覆盖原脚本文件（位置不变），并按旧树路径更新索引条目
+                // 覆盖原脚本文件（位置不变），并按条目 id 更新索引条目（lang 变更时文件扩展名随 store 内改名）
                 File.WriteAllText(EditFilePath!, _result.Content, new UTF8Encoding(false));
-                ScriptIndexStore.UpdateScriptEntry(EditTreePath!, ScriptGenerator.BuildEntry(_result));
+                ScriptIndexStore.UpdateScriptEntry(EditEntryId!, ScriptGenerator.BuildEntry(_result));
                 StatusText.Text = Strings.AiStatusEditDone;
-            }
-            else
-            {
-                var path = ScriptGenerator.WriteScriptFile(_result);
-                ScriptIndexStore.AddScriptEntry(ParentGroupPath, ScriptGenerator.BuildEntry(_result));
-                StatusText.Text = Strings.AiStatusWriteDone + "：" + System.IO.Path.GetFileName(path);
+
+                // 保存即结束本次编辑会话：重置对话，下次打开/生成重新发起
+                _conversation = null;
+                _scriptId = null;
+                _result = null;
+                ScriptPreview.Text = "";
+                DescBox.Clear();
+                DescPlaceholder.Text = Strings.AiGenDescPlaceholder;
+                BtnAccept.IsEnabled = false;
+                OwnerViewModel?.ReloadTree();
+                Close();
+                return;
             }
 
-            // 写入后刷新左侧目录树，使新脚本/修改立即可见
-            OwnerViewModel?.ReloadTree();
-            BtnAccept.IsEnabled = false;
-            // 清空预览与结果，保留描述框，便于连续操作
+            // 创建模式：写文件（{id}.{ext} 平铺）+ 按目录 id 插入索引条目
+            var entry = ScriptGenerator.BuildEntry(_result);
+            var path = ScriptGenerator.WriteScriptFile(_result);
+            ScriptIndexStore.AddScriptEntry(ParentGroupId, entry);
+            StatusText.Text = Strings.AiStatusWriteDone + "：" + _result.Name;
+
+            // 保存即结束本次编辑会话：重置对话与预览，便于从头创建下一个脚本
+            _conversation = null;
+            _scriptId = null;
             _result = null;
             ScriptPreview.Text = "";
-            IndexPreview.Text = "";
+            DescBox.Clear();
+            DescPlaceholder.Text = Strings.AiGenDescPlaceholder;
+            PreviewScriptLabel.Text = Strings.AiGenPreviewScript;
+            BtnAccept.IsEnabled = false;
+
+            // 写入后刷新左侧目录树，使新脚本立即可见
+            OwnerViewModel?.ReloadTree();
         }
         catch (System.Exception ex)
         {

@@ -8,6 +8,13 @@ namespace ScriptManager;
 /// </summary>
 public class ScriptItem
 {
+    /// <summary>
+    /// 条目唯一标识（index.json 的 id 字段，GUID）。旧索引缺少时由 <see cref="ScriptIndexStore"/>
+    /// 在首次读写时自动补齐并写回。允许脚本同级同名，因此右键的重命名/删除/编辑均按 id 定位，不用名字。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonPropertyName("id")]
+    public string? Id { get; set; }
+
     /// <summary>在界面上显示的名称（目录名 / 脚本名）</summary>
     public string Name { get; set; } = string.Empty;
 
