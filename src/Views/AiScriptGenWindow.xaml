@@ -40,16 +40,16 @@
                            TextWrapping="Wrap" Foreground="{DynamicResource BrushPlaceholder}" />
             </Grid>
 
-            <!-- 脚本预览 -->
-            <TextBlock Text="{x:Static local:Strings.AiGenPreviewScript}" Margin="0,16,0,4" FontWeight="Bold" />
+            <!-- 脚本预览：生成中此标题临时切换为「模型实时回复」，完成后恢复并显示解析结果 -->
+            <TextBlock x:Name="PreviewScriptLabel" Text="{x:Static local:Strings.AiGenPreviewScript}" Margin="0,16,0,4" FontWeight="Bold" />
             <TextBox x:Name="ScriptPreview" Height="220" IsReadOnly="True" FontFamily="Consolas" FontSize="12"
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap"
                      VerticalContentAlignment="Top"
                      Style="{StaticResource BaseTextBox}"
                      Background="{DynamicResource BrushEditorBg}" Foreground="{DynamicResource BrushEditorFg}" />
 
-            <!-- 索引条目预览 -->
-            <TextBlock Text="{x:Static local:Strings.AiGenPreviewIndex}" Margin="0,12,0,4" FontWeight="Bold" />
+            <!-- 索引条目预览：生成中隐藏（此时只有原始流，没有可解析的条目），完成后恢复 -->
+            <TextBlock x:Name="PreviewIndexLabel" Text="{x:Static local:Strings.AiGenPreviewIndex}" Margin="0,12,0,4" FontWeight="Bold" />
             <TextBox x:Name="IndexPreview" Height="130" IsReadOnly="True" FontFamily="Consolas" FontSize="12"
                      VerticalScrollBarVisibility="Auto" TextWrapping="NoWrap"
                      VerticalContentAlignment="Top"

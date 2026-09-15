@@ -68,19 +68,24 @@ public static class AiClient
     /// 流式聊天补全（stream=true，SSE 逐段读取）。每收到一段增量文本就回调 <paramref name="onDelta"/>，
     /// 全部接收后返回完整 content。供生成界面做「边生成边显示」；回调在后台线程触发，UI 侧自行调度。
     /// </summary>
-    public static async Task<string> ChatStreamAsync(string systemPrompt, string userPrompt, bool jsonMode, Action<string>? onDelta)
+    public static Task<string> ChatStreamAsync(string systemPrompt, string userPrompt, bool jsonMode, Action<string>? onDelta)
+        => ChatStreamAsync(new List<Dictionary<string, string>>
+        {
+            new() { ["role"] = "system", ["content"] = systemPrompt },
+            new() { ["role"] = "user", ["content"] = userPrompt }
+        }, jsonMode, onDelta);
+
+    /// <summary>
+    /// 流式聊天补全（完整 messages 列表重载，供多轮对话使用：history + 新一轮 user 消息）。
+    /// 每收到一段增量文本就回调 <paramref name="onDelta"/>，全部接收后返回完整 content。
+    /// </summary>
+    public static async Task<string> ChatStreamAsync(IReadOnlyList<Dictionary<string, string>> messages, bool jsonMode, Action<string>? onDelta)
     {
         var baseUrl = AppConfig.AiBaseUrl.Trim().TrimEnd('/');
         // 容错：用户若把完整端点粘贴进来（…/v1/chat/completions），自动剥离后缀，避免拼出重复路径
         if (baseUrl.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase))
             baseUrl = baseUrl[..^"/chat/completions".Length].TrimEnd('/');
         var url = baseUrl + "/chat/completions";
-
-        var messages = new List<Dictionary<string, string>>
-        {
-            new() { ["role"] = "system", ["content"] = systemPrompt },
-            new() { ["role"] = "user", ["content"] = userPrompt }
-        };
 
         var reqObj = new Dictionary<string, object?>
         {

@@ -70,12 +70,13 @@ public static class ScriptGenerator
         return sb.ToString();
     }
 
+    /// <summary>追问消息统一追加的后缀：提醒模型仍返回完整 JSON 对象（多轮对话时防止只回改动说明）。</summary>
+    public const string FollowUpSuffix = "\n\n请只返回 JSON（返回完整对象，包含全部字段，不要只给改动说明）。";
+
     /// <summary>
-    /// 调用 AI 生成脚本。语言与参数均随描述由 AI 自行解析（用户可在描述中一并说明），无需单独传参。
-    /// 传入 <paramref name="original"/> 时为「编辑」模式：把现有脚本内容与参数一并交给 AI 按描述改写。
-    /// <paramref name="onDelta"/> 为流式增量回调（后台线程触发，模型每吐一段就回调一次；可为 null）。
+    /// 构建首轮用户消息：创建模式为需求描述；编辑模式把现有脚本内容与参数一并交给 AI 按描述改写。
     /// </summary>
-    public static async Task<AiGeneratedScript> GenerateAsync(string description, AiGeneratedScript? original = null, Action<string>? onDelta = null)
+    private static string BuildInitialUserPrompt(string description, AiGeneratedScript? original)
     {
         var user = new StringBuilder();
         if (original == null)
@@ -96,12 +97,26 @@ public static class ScriptGenerator
             user.AppendLine("注意：file_name 保持与现有脚本一致（" + original.FileName + "）；除非用户明确要求换语言，lang 保持不变。");
         }
         user.AppendLine("请只返回 JSON。");
-
-        var raw = await AiClient.ChatStreamAsync(BuildSystemPrompt(), user.ToString(), jsonMode: true, onDelta);
-        return Parse(raw);
+        return user.ToString();
     }
 
-    private static AiGeneratedScript Parse(string raw)
+    /// <summary>
+    /// 开启一轮新对话并发送首条消息（流式）。返回对话对象与首个解析结果；
+    /// 后续可对返回的 <see cref="AiConversation"/> 继续调用 <see cref="AiConversation.SendAsync"/> 追问改写。
+    /// </summary>
+    public static async Task<(AiConversation Conversation, AiGeneratedScript Script)> StartConversationAsync(
+        string description, AiGeneratedScript? original = null, Action<string>? onDelta = null)
+    {
+        var conv = new AiConversation(BuildSystemPrompt());
+        var script = await conv.SendAsync(BuildInitialUserPrompt(description, original), onDelta).ConfigureAwait(false);
+        return (conv, script);
+    }
+
+    /// <summary>兼容入口：单轮生成 = 开启对话并发送首条消息。</summary>
+    public static async Task<AiGeneratedScript> GenerateAsync(string description, AiGeneratedScript? original = null, Action<string>? onDelta = null)
+        => (await StartConversationAsync(description, original, onDelta).ConfigureAwait(false)).Script;
+
+    internal static AiGeneratedScript Parse(string raw)
     {
         // 去掉可能的 ```json ... ``` 包裹（部分模型仍会加）
         var text = raw.Trim();
@@ -215,5 +230,38 @@ public static class ScriptGenerator
             entry["params"] = paramsArr;
         }
         return entry;
+    }
+}
+
+/// <summary>
+/// 与 AI 的多轮对话（system prompt 固定为 script-writer 生成约束，历史消息含此前各轮的 user/assistant 原文）。
+/// 每轮 <see cref="SendAsync"/> 流式返回并解析为 <see cref="AiGeneratedScript"/>；解析成功才把 assistant
+/// 回复写入历史，失败则回退本轮 user 消息（下次发送不残留半截对话）。
+/// </summary>
+public sealed class AiConversation
+{
+    private readonly List<Dictionary<string, string>> _messages = new();
+
+    internal AiConversation(string systemPrompt)
+        => _messages.Add(new() { ["role"] = "system", ["content"] = systemPrompt });
+
+    /// <summary>
+    /// 发送一轮新的用户消息（instruction 为完整用户内容），流式回调增量，返回解析后的脚本结果。
+    /// </summary>
+    public async Task<AiGeneratedScript> SendAsync(string instruction, Action<string>? onDelta = null)
+    {
+        _messages.Add(new() { ["role"] = "user", ["content"] = instruction });
+        try
+        {
+            var raw = await AiClient.ChatStreamAsync(_messages, jsonMode: true, onDelta).ConfigureAwait(false);
+            var script = ScriptGenerator.Parse(raw);   // 解析失败同样走回退，不污染历史
+            _messages.Add(new() { ["role"] = "assistant", ["content"] = raw });
+            return script;
+        }
+        catch
+        {
+            _messages.RemoveAt(_messages.Count - 1);
+            throw;
+        }
     }
 }

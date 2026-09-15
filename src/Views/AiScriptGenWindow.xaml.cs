@@ -14,6 +14,8 @@ namespace ScriptManager.Views;
 ///  - 编辑模式（EditSeed / EditTreePath / EditFilePath 由主窗口装配）：载入现有脚本让 AI 按修改要求改写，
 ///    接受后覆盖原脚本文件并按旧树路径更新其索引条目（path 不变）。
 /// 两种模式都先在界面预览「脚本正文」与「索引条目」，手动点「接受并写入」才落盘并刷新脚本树。
+/// 生成过程为流式（模型回复实时刷进脚本预览区）；首轮成功后进入多轮对话模式——描述框清空、
+/// 占位符切换为追问提示，再次「生成」即把新修改要求连同历史上下文发给 AI 迭代改写。
 /// 未配置 AI API 时禁用生成并提示先去「设置 ▸ 编辑配置」。
 /// </summary>
 public partial class AiScriptGenWindow : Window
@@ -34,6 +36,8 @@ public partial class AiScriptGenWindow : Window
     public string? EditFilePath { get; set; }
 
     private AiGeneratedScript? _result;
+    // 多轮对话状态：首轮成功后保留，之后每次「生成」都作为追问发给 AI（历史含此前各轮原文）
+    private AiConversation? _conversation;
 
     private bool IsEditMode => EditSeed != null;
 
@@ -75,22 +79,42 @@ public partial class AiScriptGenWindow : Window
         BtnAccept.IsEnabled = false;
         ScriptPreview.Text = "";
         IndexPreview.Text = "";
+        // 生成中：脚本预览区临时充当「实时回复」流式窗口，JSON 预览隐藏（此时还没有可解析的条目）
+        PreviewScriptLabel.Text = Strings.AiGenStreamingLabel;
+        PreviewIndexLabel.Visibility = Visibility.Collapsed;
+        IndexPreview.Visibility = Visibility.Collapsed;
         StatusText.Text = Strings.AiStatusGenerating;
+
+        // 流式增量回调：后台线程逐段追加，调度回 UI 线程刷新预览区并自动滚动
+        var sb = new System.Text.StringBuilder();
+        void OnDelta(string piece)
+        {
+            var text = sb.Append(piece).ToString();
+            Dispatcher.BeginInvoke(() =>
+            {
+                ScriptPreview.Text = text;
+                ScriptPreview.ScrollToEnd();
+                StatusText.Text = string.Format(Strings.AiStatusStreaming, text.Length);
+            });
+        }
 
         try
         {
-            // 流式生成：模型每吐一段就把增量追加进脚本预览区（后台线程回调，需调度回 UI 线程）
-            var sb = new System.Text.StringBuilder();
-            _result = await ScriptGenerator.GenerateAsync(desc, EditSeed, piece =>
+            if (_conversation == null)
             {
-                var text = sb.Append(piece).ToString();
-                Dispatcher.BeginInvoke(() =>
-                {
-                    ScriptPreview.Text = text;
-                    ScriptPreview.ScrollToEnd();
-                    StatusText.Text = string.Format(Strings.AiStatusStreaming, text.Length);
-                });
-            });
+                // 首轮：开启对话（编辑模式把现有脚本内容一并入上下文）
+                (_conversation, _result) = await ScriptGenerator.StartConversationAsync(desc, EditSeed, OnDelta);
+            }
+            else
+            {
+                // 追问轮：历史已在对话里，只发新的修改要求
+                _result = await _conversation.SendAsync(desc + ScriptGenerator.FollowUpSuffix, OnDelta);
+            }
+
+            // 完成：恢复预览区状态，显示解析后的脚本正文与索引条目
+            PreviewScriptLabel.Text = Strings.AiGenPreviewScript;
+            PreviewIndexLabel.Visibility = Visibility.Visible;
+            IndexPreview.Visibility = Visibility.Visible;
             ScriptPreview.Text = _result.Content;
             // 编辑模式 path 保持不变，条目预览中省略以免误导
             var entry = ScriptGenerator.BuildEntry(_result);
@@ -102,10 +126,18 @@ public partial class AiScriptGenWindow : Window
             });
             StatusText.Text = Strings.AiStatusGenerated;
             BtnAccept.IsEnabled = true;
+
+            // 多轮对话：清空描述框等待下一轮修改要求（占位符切换为追问提示）
+            DescBox.Clear();
+            DescPlaceholder.Text = Strings.AiGenFollowUpPlaceholder;
         }
         catch (System.Exception ex)
         {
             _result = null;
+            // 恢复预览区常态（失败的轮次不留在对话历史里，下次生成仍从当前状态重试）
+            PreviewScriptLabel.Text = Strings.AiGenPreviewScript;
+            PreviewIndexLabel.Visibility = Visibility.Visible;
+            IndexPreview.Visibility = Visibility.Visible;
             StatusText.Text = string.Format(Strings.AiStatusGenFail, ex.Message);
             BtnAccept.IsEnabled = false;
         }

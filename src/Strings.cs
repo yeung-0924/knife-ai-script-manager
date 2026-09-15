@@ -65,6 +65,8 @@ public static class Strings
     public const string AiStatusEditMode = "编辑现有脚本「{0}」：输入修改要求后点「生成」，预览无误再点「接受并写入」";
     public const string AiStatusGenerating = "正在生成脚本…";
     public const string AiStatusStreaming = "正在生成… 已接收 {0} 字（预览区实时显示模型原始回复，完成后自动解析）";
+    public const string AiGenStreamingLabel = "模型实时回复（生成中，完成后自动解析为下方脚本）";
+    public const string AiGenFollowUpPlaceholder = "可继续输入修改要求（多轮对话），如：把语言换成 go；参数「关键字」改为必填；再输出一列汇总…";
     public const string AiStatusGenerated = "已生成，请检查预览后点「接受并写入」";
     public const string AiStatusWriteDone = "已写入并刷新脚本列表";
     public const string AiStatusEditDone = "已覆盖脚本文件并更新索引条目";
