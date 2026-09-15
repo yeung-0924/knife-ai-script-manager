@@ -8,10 +8,11 @@
   失败 / 超时 / 被停止时不打开（此时多半没有产出，弹窗只会干扰）。已应用到 `爬虫 ▸ 中国行政区划` 的「导出目录」参数。
   字段说明同步进 `script/README.md` 的 `params` 表与 `script/.skills/SKILL.md`。
 
-- **AI 脚本编辑器（设置 ▸ AI 生成脚本…）**：把「新增/编辑脚本」交给 AI 完成——用户只需用自然语言描述功能、参数（可选）、指定语言（可留空由 AI 自选，覆盖 cmd/powershell/pwsh/bash/java/node/python/go/rust 共 9 种），
+- **AI 脚本编辑器（设置 ▸ AI 生成脚本…）**：把「新增/编辑脚本」交给 AI 完成——用户只需在一个描述框里用自然语言写清功能，并可在同一段话里一并说明需要的参数与语言（语言覆盖 cmd/powershell/pwsh/bash/java/node/python/go/rust 共 9 种，由 AI 自行解析），
   AI 基于 `script/.skills/SKILL.md` 的编写规范生成结构化脚本，界面先预览「脚本正文」与「将写入 index.json 的条目」，用户点「接受并写入」后才落盘，避免误写。
   - 生成的脚本统一隔离到 `script/ai-generated/`（自有 `index.json`，由根 `script/index.json` 以 `include` 汇聚），不污染用户其它脚本目录；删除仍在 UI 手动操作。
   - AI API 在「设置 ▸ 编辑配置」的 `[ai]` 节配置：`api_key`（密钥框，可勾选「显示」明文）/ `base_url`（默认 OpenAI 官方，兼容 DeepSeek/通义/Ollama 等 OpenAI 协议）/ `model`（默认 `gpt-4o-mini`）；留空即视为未配置，生成按钮禁用并提示先配置。
+  - 输入精简：去掉原先独立的「语言」下拉与「参数说明」输入框，二者并入描述框，并以灰字占位提示（含参数/语言示例）引导用户一次性写清需求。
   - 新增 `src/Ai/AiClient.cs`（OpenAI 兼容聊天补全客户端）与 `src/Ai/ScriptGenerator.cs`（拼装 system prompt、解析结构化 JSON、落盘并追加索引条目）。
 
 ### 构建（首次构建提速）

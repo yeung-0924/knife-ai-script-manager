@@ -51,9 +51,8 @@ public static class Strings
 
     #region AI 生成脚本
     public const string TitleAiGenerate = "AI 生成脚本";
-    public const string AiGenDescLabel = "脚本功能描述（越具体越好，含输入输出预期）";
-    public const string AiGenLangLabel = "语言";
-    public const string AiGenParamsLabel = "参数说明（可选）";
+    public const string AiGenDescLabel = "脚本功能描述";
+    public const string AiGenDescPlaceholder = "用自然语言描述脚本要做什么；可一并说明需要的参数（如：参数「目录」类型为 folder、参数「关键字」类型为 text）和语言（如：python）。越具体，生成越准。";
     public const string AiGenPreviewScript = "脚本预览（生成后展示，接受前可检查）";
     public const string AiGenPreviewIndex = "将写入 index.json 的条目";
     public const string BtnAiGenerate = "生成";

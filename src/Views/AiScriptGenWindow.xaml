@@ -16,25 +16,16 @@
         </Grid>
 
         <StackPanel>
-            <!-- 脚本功能描述 -->
+            <!-- 脚本功能描述：语言与参数都在描述里一并说明，无需单独选择 -->
             <TextBlock Text="{x:Static local:Strings.AiGenDescLabel}" Margin="0,0,0,4" />
-            <TextBox x:Name="DescBox" Height="84" TextWrapping="Wrap" AcceptsReturn="True"
-                     VerticalScrollBarVisibility="Auto" Style="{StaticResource BaseTextBox}" />
-
-            <!-- 语言 + 参数说明 -->
-            <Grid Margin="0,12,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Margin="0,0,6,0">
-                    <TextBlock Text="{x:Static local:Strings.AiGenLangLabel}" Margin="0,0,0,4" />
-                    <ComboBox x:Name="LangBox" Height="26" SelectedIndex="0" />
-                </StackPanel>
-                <StackPanel Grid.Column="1" Margin="6,0,0,0">
-                    <TextBlock Text="{x:Static local:Strings.AiGenParamsLabel}" Margin="0,0,0,4" />
-                    <TextBox x:Name="ParamBox" Height="26" VerticalContentAlignment="Center" Style="{StaticResource BaseTextBox}" />
-                </StackPanel>
+            <Grid>
+                <TextBox x:Name="DescBox" Height="120" TextWrapping="Wrap" AcceptsReturn="True"
+                         VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
+                         Padding="6,5" Style="{StaticResource BaseTextBox}" />
+                <TextBlock Text="{x:Static local:Strings.AiGenDescPlaceholder}"
+                           Foreground="{DynamicResource BrushPlaceholder}"
+                           Margin="9,8,9,8" TextWrapping="Wrap" IsHitTestVisible="False"
+                           Visibility="{Binding Text, ElementName=DescBox, Converter={x:Static local:StringEmptyToVisibilityConverter.Instance}}" />
             </Grid>
 
             <!-- 生成按钮 + 状态 -->

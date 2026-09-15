@@ -71,16 +71,12 @@ public static class ScriptGenerator
         return sb.ToString();
     }
 
-    /// <summary>调用 AI 生成脚本；language 为 null/空/"auto" 时由 AI 自选语言。</summary>
-    public static async Task<AiGeneratedScript> GenerateAsync(string description, string? language, string? paramHint)
+    /// <summary>调用 AI 生成脚本。语言与参数均随描述由 AI 自行解析（用户可在描述中一并说明），无需单独传参。</summary>
+    public static async Task<AiGeneratedScript> GenerateAsync(string description)
     {
         var user = new StringBuilder();
         user.AppendLine("请生成脚本，需求描述如下：");
         user.AppendLine(description);
-        if (!string.IsNullOrWhiteSpace(language) && language != "auto")
-            user.AppendLine($"指定语言：{language}");
-        if (!string.IsNullOrWhiteSpace(paramHint))
-            user.AppendLine($"参数说明：{paramHint}");
         user.AppendLine("请只返回 JSON。");
 
         var raw = await AiClient.ChatAsync(BuildSystemPrompt(), user.ToString(), jsonMode: true);
