@@ -44,6 +44,7 @@
             <TextBlock Text="{x:Static local:Strings.AiGenPreviewScript}" Margin="0,16,0,4" FontWeight="Bold" />
             <TextBox x:Name="ScriptPreview" Height="220" IsReadOnly="True" FontFamily="Consolas" FontSize="12"
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap"
+                     VerticalContentAlignment="Top"
                      Style="{StaticResource BaseTextBox}"
                      Background="{DynamicResource BrushEditorBg}" Foreground="{DynamicResource BrushEditorFg}" />
 
@@ -51,6 +52,7 @@
             <TextBlock Text="{x:Static local:Strings.AiGenPreviewIndex}" Margin="0,12,0,4" FontWeight="Bold" />
             <TextBox x:Name="IndexPreview" Height="130" IsReadOnly="True" FontFamily="Consolas" FontSize="12"
                      VerticalScrollBarVisibility="Auto" TextWrapping="NoWrap"
+                     VerticalContentAlignment="Top"
                      Style="{StaticResource BaseTextBox}"
                      Background="{DynamicResource BrushEditorBg}" Foreground="{DynamicResource BrushEditorFg}" />
         </StackPanel>

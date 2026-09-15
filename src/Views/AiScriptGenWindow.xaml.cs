@@ -79,7 +79,18 @@ public partial class AiScriptGenWindow : Window
 
         try
         {
-            _result = await ScriptGenerator.GenerateAsync(desc, EditSeed);
+            // 流式生成：模型每吐一段就把增量追加进脚本预览区（后台线程回调，需调度回 UI 线程）
+            var sb = new System.Text.StringBuilder();
+            _result = await ScriptGenerator.GenerateAsync(desc, EditSeed, piece =>
+            {
+                var text = sb.Append(piece).ToString();
+                Dispatcher.BeginInvoke(() =>
+                {
+                    ScriptPreview.Text = text;
+                    ScriptPreview.ScrollToEnd();
+                    StatusText.Text = string.Format(Strings.AiStatusStreaming, text.Length);
+                });
+            });
             ScriptPreview.Text = _result.Content;
             // 编辑模式 path 保持不变，条目预览中省略以免误导
             var entry = ScriptGenerator.BuildEntry(_result);

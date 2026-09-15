@@ -65,6 +65,8 @@
 - 脚本预览的语法高亮改为按当前脚本 `lang` 映射：PowerShell / PowerShell 7 / Python / Node / Java 各自正确高亮，bat / bash / go / rust 等未收录语言改用无高亮，避免此前一律按 PowerShell 标错色（视觉误导）。
 
 ### 界面与交互
+- **AI 生成改为流式输出**：生成过程中模型回复逐段实时刷进「脚本预览」区（含自动滚动），状态栏显示已接收字数；完成后自动解析并切换为格式化的脚本正文与索引条目预览。`AiClient` 新增 `ChatStreamAsync`（SSE 逐段解析、`ResponseHeadersRead` 边读边回调；兼容思考型模型的 `reasoning_content` 等非正文增量，忽略之），`ScriptGenerator.GenerateAsync` 增加可选流式回调。
+- **输入框内容/光标垂直对齐修复**：`BaseTextBox` 模板的内容宿主此前硬编码垂直居中，控件上的 `VerticalContentAlignment="Top"` 完全无效——多行框（AI 描述框、脚本/索引预览框）光标与内容上下居中而占位符却顶左，观感割裂。现模板改为 `{TemplateBinding VerticalContentAlignment}`（默认仍居中，单行框视觉不变），多行框显式置顶。
 - 配置编辑弹窗：
   - 未自定义的配置项一律显示为空，仅以占位符提示内置默认值（此前会把默认值直接填进输入框，看起来像用户改过）。
   - 与内置默认等价的显式配置（如 `lib_dir = lib`、`default_timeout = 0`）同样按「未自定义」处理，显示为空 + 占位符。

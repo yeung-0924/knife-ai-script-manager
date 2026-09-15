@@ -73,8 +73,9 @@ public static class ScriptGenerator
     /// <summary>
     /// 调用 AI 生成脚本。语言与参数均随描述由 AI 自行解析（用户可在描述中一并说明），无需单独传参。
     /// 传入 <paramref name="original"/> 时为「编辑」模式：把现有脚本内容与参数一并交给 AI 按描述改写。
+    /// <paramref name="onDelta"/> 为流式增量回调（后台线程触发，模型每吐一段就回调一次；可为 null）。
     /// </summary>
-    public static async Task<AiGeneratedScript> GenerateAsync(string description, AiGeneratedScript? original = null)
+    public static async Task<AiGeneratedScript> GenerateAsync(string description, AiGeneratedScript? original = null, Action<string>? onDelta = null)
     {
         var user = new StringBuilder();
         if (original == null)
@@ -96,7 +97,7 @@ public static class ScriptGenerator
         }
         user.AppendLine("请只返回 JSON。");
 
-        var raw = await AiClient.ChatAsync(BuildSystemPrompt(), user.ToString(), jsonMode: true);
+        var raw = await AiClient.ChatStreamAsync(BuildSystemPrompt(), user.ToString(), jsonMode: true, onDelta);
         return Parse(raw);
     }
 
