@@ -3,17 +3,32 @@
 ## [Unreleased]
 
 ### 新增功能
+- **脚本树右键菜单**：在目录树区域按节点类型动态弹出右键菜单，删除操作均带二次确认（MessageBox，默认「否」）：
+  - **面板空白处**右键：`创建目录`、`创建脚本（AI）`——在根层级新建；
+  - **目录节点**右键：`创建目录`、`创建脚本（AI）`（lucide `bot` 图标）、`删除目录`——创建发生在所点目录之下；
+  - **脚本节点**右键：`编辑脚本`、`删除脚本`。
+  - `创建目录` 用新的通用 `InputDialog` 输入名称；同级重名会拒绝并提示。
+  - `创建脚本（AI）` 打开 AI 编辑器（创建模式）：脚本文件仍落 `script/ai-generated/`，索引条目插入所点目录节点下，写入后自动刷新树。
+  - `编辑脚本` 打开 AI 编辑器（编辑模式）：载入现有脚本内容与参数作为种子，AI 按描述的「修改要求」改写；接受后**覆盖原脚本文件**并更新索引条目（`path` 不变、其余字段保留）。
+  - `删除目录` 仅从索引移除该目录及其子树条目，**不删除任何脚本文件**（确认框中已说明）；`删除脚本` 同时删除索引条目与脚本文件（以索引记录的相对路径为准，并限定在 script 目录内防路径穿越）。
+  - 同步移除顶部「设置 ▸ AI 生成脚本…」菜单项（功能由树右键的「创建脚本（AI）」承接）；新增 `src/ScriptIndexStore.cs`（唯一索引按树路径的增删改查）、`src/Views/InputDialog.xaml(.cs)` 与图标 `bot.svg` / `folder-plus.svg` / `pencil.svg`。
+
+- **脚本索引归集为唯一 `script/index.json`（配合右键菜单的前置重构）**：原先根索引以 `include` 分片到 windows/hyper/toolkit/crawler/runtime/demo/test/ai-generated 等 13 个子索引文件（含嵌套），右键增删改需精确定位条目所在文件、且后续拖拽归类难以实现——现全部**递归归集进顶层唯一 `script/index.json`**（嵌套 `children` 结构不变）：
+  - 归集时把各子索引条目的 `path` **重写为相对 script 根目录**（如 `./show-ip.ps1` → `./windows/network/show-ip.ps1`），脚本物理文件一律不动；
+  - 迁移脚本先校验后执行：脚本条目数前后一致（34 = 34）、每个重写后的 `path` 真实存在、无残留 `include`；原根索引与 13 个子索引备份至 `D:\.Backup\knife-script-manager-index-merge\` 后删除；
+  - `ConfigLoader` 的 include 解析逻辑保留（向后兼容旧外部索引），程序内此后只维护这一个索引文件。
+
 - **脚本跑完自动打开输出目录**：`params[]` 新增可选字段 `open_after_run`。标了它的参数，在脚本**执行成功（退出码 0）**后会被自动在资源管理器中打开
   ——目录参数直接打开该目录，文件参数打开所在目录并选中该文件；参数留空或路径尚未产出则静默跳过。
   失败 / 超时 / 被停止时不打开（此时多半没有产出，弹窗只会干扰）。已应用到 `爬虫 ▸ 中国行政区划` 的「导出目录」参数。
   字段说明同步进 `script/README.md` 的 `params` 表与 `script/.skills/SKILL.md`。
 
-- **AI 脚本编辑器（设置 ▸ AI 生成脚本…）**：把「新增/编辑脚本」交给 AI 完成——用户只需在一个描述框里用自然语言写清功能，并可在同一段话里一并说明需要的参数与语言（语言覆盖 cmd/powershell/pwsh/bash/java/node/python/go/rust 共 9 种，由 AI 自行解析），
+- **AI 脚本编辑器（脚本树右键 ▸ 创建脚本（AI）/ 编辑脚本）**：把「新增/编辑脚本」交给 AI 完成——用户只需在一个描述框里用自然语言写清功能，并可在同一段话里一并说明需要的参数与语言（语言覆盖 cmd/powershell/pwsh/bash/java/node/python/go/rust 共 9 种，由 AI 自行解析），
   AI 基于 `script/.skills/SKILL.md` 的编写规范生成结构化脚本，界面先预览「脚本正文」与「将写入 index.json 的条目」，用户点「接受并写入」后才落盘，避免误写。
-  - 生成的脚本统一隔离到 `script/ai-generated/`（自有 `index.json`，由根 `script/index.json` 以 `include` 汇聚），不污染用户其它脚本目录；删除仍在 UI 手动操作。
+  - 生成的脚本文件统一隔离到 `script/ai-generated/`，索引条目经 `ScriptIndexStore` 写入唯一 `script/index.json` 的目标目录节点下；删除在树右键操作。
   - AI API 在「设置 ▸ 编辑配置」的 `[ai]` 节配置：`api_key`（密钥框，可勾选「显示」明文）/ `base_url`（默认 OpenAI 官方，兼容 DeepSeek/通义/Ollama 等 OpenAI 协议）/ `model`（默认 `gpt-4o-mini`）；留空即视为未配置，生成按钮禁用并提示先配置。
   - 输入精简：去掉原先独立的「语言」下拉与「参数说明」输入框，二者并入描述框，并以灰字占位提示（含参数/语言示例）引导用户一次性写清需求。
-  - 新增 `src/Ai/AiClient.cs`（OpenAI 兼容聊天补全客户端）与 `src/Ai/ScriptGenerator.cs`（拼装 system prompt、解析结构化 JSON、落盘并追加索引条目）。
+  - 新增 `src/Ai/AiClient.cs`（OpenAI 兼容聊天补全客户端）与 `src/Ai/ScriptGenerator.cs`（拼装 system prompt、解析结构化 JSON、落盘脚本文件并构建索引条目）。
 
 ### 构建（首次构建提速）
 - 发布命令显式把 `RuntimeIdentifiers` 收窄为**单个目标架构**（`-p:RuntimeIdentifiers=$Runtime`）。

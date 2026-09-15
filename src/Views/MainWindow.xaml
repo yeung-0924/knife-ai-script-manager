@@ -54,13 +54,6 @@
                                              UriSource='pack://application:,,,/assets/images/button/settings.svg' />
                         </MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Header="{x:Static local:Strings.MenuAiGenerate}"
-                              Click="MenuAiGenerate_Click">
-                        <MenuItem.Icon>
-                            <svgc:SvgViewbox Width="13" Height="13"
-                                             UriSource='pack://application:,,,/assets/images/button/square.svg' />
-                        </MenuItem.Icon>
-                    </MenuItem>
                 </MenuItem>
             </Menu>
         </Border>
@@ -159,6 +152,7 @@
                         <TreeView x:Name="ScriptTreeView"
                                   ItemsSource="{Binding ScriptTree}"
                                   SelectedItemChanged="TreeView_SelectedItemChanged"
+                                  ContextMenuOpening="ScriptTreeView_ContextMenuOpening"
                                   BorderThickness="0"
                                   Margin="10,0"
                                   IsEnabled="{Binding IsRunning, Converter={x:Static local:InverseBoolConverter.Instance}}"

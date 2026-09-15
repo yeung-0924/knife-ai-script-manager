@@ -1,35 +1,920 @@
 [
   {
     "name": "Windows",
-    "include": "./windows/index.json"
+    "children": [
+      {
+        "name": "系统",
+        "children": [
+          {
+            "name": "获取系统信息",
+            "path": "./windows/system/Get-SystemInfo.ps1",
+            "lang": "powershell"
+          }
+        ]
+      },
+      {
+        "name": "文件",
+        "children": [
+          {
+            "name": "获取文件编码",
+            "path": "./windows/file/Get-FileEncoding.ps1",
+            "lang": "powershell",
+            "params": [
+              {
+                "name": "PATH",
+                "label": "文件或目录",
+                "default": "",
+                "required": true,
+                "type": "folder",
+                "placeholder": "选择目录或输入文件路径"
+              },
+              {
+                "name": "NAME",
+                "label": "文件名称",
+                "default": "",
+                "required": false,
+                "placeholder": "文件名关键字"
+              },
+              {
+                "name": "ENCODING",
+                "label": "字符编码",
+                "default": "",
+                "required": false,
+                "options": [
+                  "UTF-8",
+                  "ASCII / UTF-8",
+                  "UTF-16 LE",
+                  "UTF-16 BE",
+                  "UTF-32 LE",
+                  "UTF-32 BE",
+                  "GBK / GB2312",
+                  "其他 ANSI（非 UTF-8）"
+                ],
+                "placeholder": "选择编码则只显示该编码，留空显示全部"
+              },
+              {
+                "name": "BOM",
+                "label": "BOM",
+                "default": "",
+                "required": false,
+                "options": [
+                  "有",
+                  "无"
+                ],
+                "placeholder": "选择有/无 BOM，留空显示全部"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "进程",
+        "children": [
+          {
+            "name": "获取进程列表",
+            "path": "./windows/process/Get-Precess.ps1",
+            "lang": "powershell",
+            "params": [
+              {
+                "name": "NAME",
+                "label": "进程名称",
+                "default": "",
+                "required": false,
+                "placeholder": "进程名称关键字，留空显示全部"
+              }
+            ]
+          },
+          {
+            "name": "结束进程",
+            "path": "./windows/process/Kill-Process.ps1",
+            "lang": "powershell",
+            "admin": true,
+            "params": [
+              {
+                "name": "PID",
+                "label": "进程 ID",
+                "default": "",
+                "required": false,
+                "placeholder": "进程 PID"
+              },
+              {
+                "name": "PORT",
+                "label": "端口号",
+                "default": "",
+                "required": false,
+                "placeholder": "进程端口"
+              },
+              {
+                "name": "NAME",
+                "label": "进程名称",
+                "default": "",
+                "required": false,
+                "placeholder": "进程名称关键字"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "网络",
+        "children": [
+          {
+            "name": "获取网卡信息",
+            "path": "./windows/network/Get-IPInfo.ps1",
+            "lang": "powershell"
+          },
+          {
+            "name": "网络连通性测试",
+            "path": "./windows/network/network_connectivity_test.bat",
+            "lang": "cmd",
+            "params": [
+              {
+                "name": "HOST",
+                "label": "目标主机",
+                "default": "",
+                "required": true,
+                "placeholder": "目标主机的 IP 或域名"
+              },
+              {
+                "name": "PORT",
+                "label": "目标端口",
+                "default": "",
+                "required": false,
+                "placeholder": "目标主机的端口号"
+              }
+            ]
+          },
+          {
+            "name": "防火墙",
+            "children": [
+              {
+                "name": "更新防火墙策略",
+                "path": "./windows/network/firewall/Update-Firewall.ps1",
+                "lang": "powershell",
+                "admin": true,
+                "params": [
+                  {
+                    "name": "DOMAIN",
+                    "label": "域网络",
+                    "default": "启用",
+                    "required": true,
+                    "options": [
+                      "启用",
+                      "禁用"
+                    ],
+                    "placeholder": "启用/禁用域网络"
+                  },
+                  {
+                    "name": "PRIVATE",
+                    "label": "专用网络",
+                    "default": "启用",
+                    "required": true,
+                    "options": [
+                      "启用",
+                      "禁用"
+                    ],
+                    "placeholder": "启用/禁用专用网络"
+                  },
+                  {
+                    "name": "PUBLIC",
+                    "label": "公用网络",
+                    "default": "启用",
+                    "required": true,
+                    "options": [
+                      "启用",
+                      "禁用"
+                    ],
+                    "placeholder": "启用/禁用公共网络"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
   },
   {
     "name": "Hyper-V",
-    "include": "./hyper/index.json"
+    "children": [
+      {
+        "name": "设置固定 IP（宿主机）",
+        "path": "./hyper/Set-StaticIP.ps1",
+        "lang": "powershell",
+        "admin": true,
+        "params": [
+          {
+            "name": "SWITCH_NAME",
+            "label": "虚拟交换机名称",
+            "default": "",
+            "required": true,
+            "placeholder": "新虚拟交换机"
+          },
+          {
+            "name": "GATEWAY_IP",
+            "label": "宿主机网关 IP",
+            "default": "",
+            "required": true,
+            "placeholder": "192.168.1.1"
+          },
+          {
+            "name": "SUBNET_PREFIX",
+            "label": "子网掩码位数",
+            "default": "",
+            "required": true,
+            "placeholder": "24"
+          },
+          {
+            "name": "NAT_NETWORK",
+            "label": "NAT 子网范围",
+            "default": "",
+            "required": true,
+            "placeholder": "192.168.1.0/24"
+          }
+        ]
+      }
+    ]
   },
   {
     "name": "工具箱",
-    "include": "./toolkit/index.json"
+    "children": [
+      {
+        "name": "SVG 转 ICO",
+        "path": "./toolkit/image/svg_to_ico.py",
+        "lang": "python",
+        "params": [
+          {
+            "name": "SVG_PATH",
+            "label": "输入文件",
+            "default": "",
+            "required": true,
+            "type": "file",
+            "placeholder": "选择 .svg 文件，如 C:\\Users\\PC\\app.svg"
+          },
+          {
+            "name": "OUT_PATH",
+            "label": "输出目录",
+            "default": "",
+            "required": false,
+            "type": "folder",
+            "placeholder": "选择 .ico 的输出目录，如 C:\\Users\\PC\\output"
+          },
+          {
+            "name": "SIZES",
+            "label": "尺寸列表",
+            "default": "16,24,32,48,64,256",
+            "required": true,
+            "placeholder": "16,24,32,48,64,128,256"
+          }
+        ]
+      }
+    ]
   },
   {
     "name": "爬虫",
-    "include": "./crawler/index.json"
+    "children": [
+      {
+        "name": "中国行政区划",
+        "path": "./crawler/fetch_xzqh.py",
+        "lang": "python",
+        "params": [
+          {
+            "name": "EXPORT_DIR",
+            "label": "导出目录",
+            "default": "",
+            "required": true,
+            "type": "folder",
+            "open_after_run": true,
+            "placeholder": "选择导出结果的保存目录，如 D:\\导出\\行政区划"
+          },
+          {
+            "name": "CODE",
+            "label": "省市县区代码",
+            "default": "",
+            "required": false,
+            "placeholder": "留空导出全部；如 110000 北京市、110101 东城区"
+          },
+          {
+            "name": "LEVEL",
+            "label": "导出级别",
+            "default": "省市县区",
+            "required": false,
+            "type": "select",
+            "options": [
+              "省市县区",
+              "乡镇街道"
+            ],
+            "placeholder": "省市县区 = 到区县；乡镇街道 = 再含乡镇街道"
+          },
+          {
+            "name": "TYPE",
+            "label": "导出类型",
+            "default": "csv",
+            "required": true,
+            "type": "select",
+            "options": [
+              "csv",
+              "txt",
+              "json",
+              "sql"
+            ],
+            "placeholder": "csv / txt / json / sql（sql = MySQL 兼容建表 + INSERT）"
+          }
+        ]
+      }
+    ]
   },
   {
     "name": "运行时环境",
-    "include": "./runtime/index.json"
+    "children": [
+      {
+        "name": "运行时环境检测",
+        "path": "./runtime/Get-RuntimeEnv.ps1",
+        "lang": "powershell"
+      },
+      {
+        "name": "安装 Powershell7 运行时环境",
+        "path": "./runtime/Install-Powershell7.ps1",
+        "lang": "powershell",
+        "admin": true,
+        "params": [
+          {
+            "name": "INSTALL_DIR",
+            "label": "安装目录",
+            "default": "",
+            "required": false,
+            "type": "folder",
+            "placeholder": "默认安装至程序 runtime 目录"
+          },
+          {
+            "name": "VERSION",
+            "label": "PowerShell 版本",
+            "default": "PowerShell 7.6 (LTS)",
+            "required": true,
+            "options": [
+              "PowerShell 7.6 (LTS)",
+              "PowerShell 7.5 (STS)",
+              "PowerShell 7.4 (LTS)"
+            ],
+            "placeholder": "选择要安装的 PowerShell 7 大版本（LTS 支持更久，STS 为半年度报告版）"
+          },
+          {
+            "name": "DOWNLOAD_SOURCE",
+            "label": "下载源",
+            "default": "国内镜像",
+            "required": true,
+            "options": [
+              "国内镜像",
+              "GitHub 官方"
+            ],
+            "placeholder": "国内镜像=ghproxy.net 国内代理（直连 GitHub 发布资产，国内快，推荐，不依赖任何额外程序）；GitHub 官方=官方直连+ghproxy 回退"
+          },
+          {
+            "name": "OVERWRITE",
+            "label": "覆盖原文件",
+            "default": "否",
+            "required": true,
+            "options": [
+              "是",
+              "否"
+            ],
+            "placeholder": "该版本 PowerShell 目录已存在时是否进行覆盖"
+          },
+          {
+            "name": "SET_PATH",
+            "label": "设置 PATH",
+            "default": "否",
+            "required": true,
+            "options": [
+              "是",
+              "否"
+            ],
+            "placeholder": "是否写入 SCRIPT_MANAGER_ENV 并加入 PATH"
+          }
+        ]
+      },
+      {
+        "name": "安装 Java 运行时环境",
+        "path": "./runtime/Install-Java.ps1",
+        "lang": "powershell",
+        "admin": true,
+        "params": [
+          {
+            "name": "DISTRO",
+            "label": "发行版",
+            "default": "Oracle OpenJDK",
+            "required": true,
+            "options": [
+              "Oracle OpenJDK",
+              "Microsoft OpenJDK",
+              "Alibaba Dragonwell"
+            ],
+            "placeholder": "选择 JDK 发行版：Oracle 官方 / Microsoft 构建 / 阿里 Dragonwell"
+          },
+          {
+            "name": "INSTALL_DIR",
+            "label": "安装目录",
+            "default": "",
+            "required": false,
+            "type": "folder",
+            "placeholder": "默认安装至程序 runtime 目录"
+          },
+          {
+            "name": "VERSION",
+            "label": "版本",
+            "default": "25 (LTS)",
+            "required": true,
+            "options": [
+              "25 (LTS)",
+              "21 (LTS)",
+              "17 (LTS)"
+            ],
+            "placeholder": "选择要安装的 JDK 主版本"
+          },
+          {
+            "name": "OVERWRITE",
+            "label": "覆盖原文件",
+            "default": "否",
+            "required": true,
+            "options": [
+              "是",
+              "否"
+            ],
+            "placeholder": "该版本 JDK 目录已存在时是否进行覆盖"
+          },
+          {
+            "name": "SET_JAVA_HOME",
+            "label": "设置 JAVA_HOME",
+            "default": "否",
+            "required": true,
+            "options": [
+              "是",
+              "否"
+            ],
+            "placeholder": "是否设置环境变量 JAVA_HOME"
+          },
+          {
+            "name": "SET_PATH",
+            "label": "设置 PATH",
+            "default": "否",
+            "required": true,
+            "options": [
+              "是",
+              "否"
+            ],
+            "placeholder": "是否设置环境变量 PATH"
+          }
+        ]
+      },
+      {
+        "name": "安装 Node.js 运行时环境",
+        "path": "./runtime/Install-Node.ps1",
+        "lang": "powershell",
+        "admin": true,
+        "params": [
+          {
+            "name": "INSTALL_DIR",
+            "label": "安装目录",
+            "default": "",
+            "required": false,
+            "type": "folder",
+            "placeholder": "默认安装至程序 runtime 目录"
+          },
+          {
+            "name": "VERSION",
+            "label": "Node 版本",
+            "default": "Node.js 22 (LTS)",
+            "required": true,
+            "options": [
+              "Node.js 24 (LTS)",
+              "Node.js 22 (LTS)",
+              "Node.js 20 (LTS)",
+              "Node.js 18 (LTS)"
+            ],
+            "placeholder": "选择要安装的 Node.js LTS 大版本"
+          },
+          {
+            "name": "OVERWRITE",
+            "label": "覆盖原文件",
+            "default": "否",
+            "required": true,
+            "options": [
+              "是",
+              "否"
+            ],
+            "placeholder": "该版本 node 目录已存在时是否进行覆盖"
+          },
+          {
+            "name": "SET_PATH",
+            "label": "设置 PATH",
+            "default": "否",
+            "required": true,
+            "options": [
+              "是",
+              "否"
+            ],
+            "placeholder": "是否写入 SCRIPT_MANAGER_ENV 并加入 PATH"
+          }
+        ]
+      },
+      {
+        "name": "安装 Python 运行时环境",
+        "path": "./runtime/Install-Python.ps1",
+        "lang": "powershell",
+        "admin": true,
+        "params": [
+          {
+            "name": "INSTALL_DIR",
+            "label": "安装目录",
+            "default": "",
+            "required": false,
+            "type": "folder",
+            "placeholder": "默认安装至程序的 runtime 目录"
+          },
+          {
+            "name": "VERSION",
+            "label": "Python 版本",
+            "default": "Python 3.12",
+            "required": true,
+            "options": [
+              "Python 3.14",
+              "Python 3.13",
+              "Python 3.12",
+              "Python 3.11",
+              "Python 3.10"
+            ],
+            "placeholder": "选择要安装的 Python 版本（ARM64 机器仅支持 3.11 及以上）"
+          },
+          {
+            "name": "DOWNLOAD_SOURCE",
+            "label": "下载源",
+            "default": "华为云镜像",
+            "required": true,
+            "options": [
+              "华为云镜像",
+              "GitHub 官方"
+            ],
+            "placeholder": "华为云镜像国内直连快（官方安装器）；GitHub 官方为解压即用包"
+          },
+          {
+            "name": "MIRROR_PREFIX",
+            "label": "代理前缀",
+            "default": "",
+            "required": false,
+            "placeholder": "仅 GitHub 官方时生效，如 https://gh-proxy.com/ （留空为直连）"
+          },
+          {
+            "name": "OVERWRITE",
+            "label": "覆盖原文件",
+            "default": "否",
+            "required": true,
+            "options": [
+              "是",
+              "否"
+            ],
+            "placeholder": "已存在 python 目录时是否进行覆盖"
+          },
+          {
+            "name": "SET_PATH",
+            "label": "设置 PATH",
+            "default": "否",
+            "required": true,
+            "options": [
+              "是",
+              "否"
+            ],
+            "placeholder": "是否写入 SCRIPT_MANAGER_ENV 并加入 PATH"
+          }
+        ]
+      },
+      {
+        "name": "安装 Go 运行时环境",
+        "path": "./runtime/Install-Go.ps1",
+        "lang": "powershell",
+        "admin": true,
+        "params": [
+          {
+            "name": "INSTALL_DIR",
+            "label": "安装目录",
+            "default": "",
+            "required": false,
+            "type": "folder",
+            "placeholder": "默认安装至程序 runtime 目录"
+          },
+          {
+            "name": "VERSION",
+            "label": "Go 版本",
+            "default": "Go 1.26",
+            "required": true,
+            "options": [
+              "Go 1.27",
+              "Go 1.26",
+              "Go 1.25",
+              "Go 1.24"
+            ],
+            "placeholder": "选择要安装的 Go 版本（官方仅维护最近两个 minor）"
+          },
+          {
+            "name": "OVERWRITE",
+            "label": "覆盖原文件",
+            "default": "否",
+            "required": true,
+            "options": [
+              "是",
+              "否"
+            ],
+            "placeholder": "该版本 go 目录已存在时是否进行覆盖"
+          },
+          {
+            "name": "SET_PATH",
+            "label": "设置 PATH",
+            "default": "否",
+            "required": true,
+            "options": [
+              "是",
+              "否"
+            ],
+            "placeholder": "是否写入 SCRIPT_MANAGER_ENV 并加入 PATH"
+          }
+        ]
+      },
+      {
+        "name": "安装 Rust 运行时环境",
+        "path": "./runtime/Install-Rust.ps1",
+        "lang": "powershell",
+        "admin": true,
+        "params": [
+          {
+            "name": "INSTALL_DIR",
+            "label": "安装目录",
+            "default": "",
+            "required": false,
+            "type": "folder",
+            "placeholder": "默认安装至程序 runtime 目录"
+          },
+          {
+            "name": "CHANNEL",
+            "label": "通道",
+            "default": "stable",
+            "required": true,
+            "options": [
+              "stable",
+              "beta",
+              "nightly"
+            ],
+            "placeholder": "选择 Rust 发布通道"
+          },
+          {
+            "name": "OVERWRITE",
+            "label": "覆盖原文件",
+            "default": "否",
+            "required": true,
+            "options": [
+              "是",
+              "否"
+            ],
+            "placeholder": "该通道 rust 目录已存在时是否进行覆盖"
+          },
+          {
+            "name": "SET_PATH",
+            "label": "设置 PATH",
+            "default": "否",
+            "required": true,
+            "options": [
+              "是",
+              "否"
+            ],
+            "placeholder": "是否写入 SCRIPT_MANAGER_ENV 并加入 PATH"
+          }
+        ]
+      }
+    ]
   },
   {
     "name": "DEMO",
-    "include": "./demo/index.json"
+    "children": [
+      {
+        "name": "HelloWorld",
+        "children": [
+          {
+            "name": "PowerShell 脚本",
+            "path": "./demo/helloworld/powershell.ps1",
+            "lang": "powershell",
+            "params": [
+              {
+                "name": "NAME",
+                "label": "问候对象",
+                "default": "World",
+                "required": false,
+                "placeholder": "如 World"
+              }
+            ]
+          },
+          {
+            "name": "PowerShell7 脚本",
+            "path": "./demo/helloworld/pwsh.ps1",
+            "lang": "pwsh",
+            "params": [
+              {
+                "name": "NAME",
+                "label": "问候对象",
+                "default": "World",
+                "required": false,
+                "placeholder": "如 World"
+              }
+            ]
+          },
+          {
+            "name": "CMD 脚本",
+            "path": "./demo/helloworld/cmd.bat",
+            "lang": "cmd",
+            "params": [
+              {
+                "name": "NAME",
+                "label": "问候对象",
+                "default": "World",
+                "required": false,
+                "placeholder": "如 World"
+              }
+            ]
+          },
+          {
+            "name": "Bash 脚本",
+            "path": "./demo/helloworld/bash.sh",
+            "lang": "bash",
+            "params": [
+              {
+                "name": "NAME",
+                "label": "问候对象",
+                "default": "World",
+                "required": false,
+                "placeholder": "如 World"
+              }
+            ]
+          },
+          {
+            "name": "Java 脚本",
+            "path": "./demo/helloworld/java.java",
+            "lang": "java",
+            "params": [
+              {
+                "name": "NAME",
+                "label": "问候对象",
+                "default": "World",
+                "required": false,
+                "placeholder": "如 World"
+              }
+            ]
+          },
+          {
+            "name": "Node 脚本",
+            "path": "./demo/helloworld/node.js",
+            "lang": "node",
+            "params": [
+              {
+                "name": "NAME",
+                "label": "Name",
+                "default": "DY",
+                "required": true,
+                "placeholder": "Name"
+              }
+            ]
+          },
+          {
+            "name": "Python 脚本",
+            "path": "./demo/helloworld/python.py",
+            "lang": "python",
+            "params": [
+              {
+                "name": "NAME",
+                "label": "问候对象",
+                "default": "World",
+                "required": false,
+                "placeholder": "如 World"
+              }
+            ]
+          },
+          {
+            "name": "Go 脚本",
+            "path": "./demo/helloworld/go_hello.go",
+            "lang": "go",
+            "params": [
+              {
+                "name": "NAME",
+                "label": "问候对象",
+                "default": "World",
+                "required": false,
+                "placeholder": "如 World"
+              }
+            ]
+          },
+          {
+            "name": "Rust 脚本",
+            "path": "./demo/helloworld/rust_hello.rs",
+            "lang": "rust",
+            "params": [
+              {
+                "name": "NAME",
+                "label": "问候对象",
+                "default": "World",
+                "required": false,
+                "placeholder": "如 World"
+              }
+            ]
+          }
+        ]
+      }
+    ]
   },
   {
     "name": "测试",
-    "include": "./test/index.json"
-  },
-  {
-    "name": "AI 生成",
-    "include": "./ai-generated/index.json"
+    "children": [
+      {
+        "name": "Java 外部依赖测试",
+        "path": "./test/JavaExternalDep.java",
+        "lang": "java",
+        "params": [
+          {
+            "name": "NAME",
+            "label": "姓名",
+            "default": "小名",
+            "required": false,
+            "placeholder": "如 World"
+          }
+        ]
+      },
+      {
+        "name": "Node 外部依赖测试",
+        "path": "./test/NodeExternalDep.js",
+        "lang": "node",
+        "params": [
+          {
+            "name": "NAME",
+            "label": "Name",
+            "default": "DY",
+            "required": false,
+            "placeholder": "Name"
+          }
+        ]
+      },
+      {
+        "name": "Python",
+        "children": [
+          {
+            "name": "Python 外部依赖测试",
+            "path": "./test/PythonExternalDep.py",
+            "lang": "python",
+            "params": [
+              {
+                "name": "NAME",
+                "label": "问候对象",
+                "default": "World",
+                "required": false,
+                "placeholder": "如 World"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "编码测试",
+        "path": "./test/Test-Encoding.ps1",
+        "lang": "powershell"
+      },
+      {
+        "name": "10 秒测试",
+        "path": "./test/Test-Timeout.ps1",
+        "lang": "powershell"
+      },
+      {
+        "name": "Go 语言测试",
+        "path": "./test/go_hello.go",
+        "lang": "go",
+        "params": [
+          {
+            "name": "NAME",
+            "label": "问候对象",
+            "default": "World",
+            "required": false,
+            "placeholder": "如 World"
+          }
+        ]
+      },
+      {
+        "name": "Rust 语言测试",
+        "path": "./test/rust_hello.rs",
+        "lang": "rust",
+        "params": [
+          {
+            "name": "NAME",
+            "label": "问候对象",
+            "default": "World",
+            "required": false,
+            "placeholder": "如 World"
+          }
+        ]
+      }
+    ]
   },
   {
     "name": "README",

@@ -41,7 +41,6 @@ public static class Strings
         public const string MenuFile = "文件";
         public const string MenuSettings = "设置";
         public const string MenuEditConfig = "编辑配置...";
-        public const string MenuAiGenerate = "AI 生成脚本...";
         public const string TitleConfigEditor = "配置编辑";
         public const string ConfigEditorBrowseFolder = "选择目录";
         public const string ConfigEditorBrowseFile = "选择脚本索引文件 (index.json)";
@@ -50,17 +49,24 @@ public static class Strings
         #endregion
 
     #region AI 生成脚本
+    public const string TitleAiCreate = "AI 创建脚本";
+    public const string TitleAiEdit = "AI 编辑脚本";
     public const string TitleAiGenerate = "AI 生成脚本";
     public const string AiGenDescLabel = "脚本功能描述";
     public const string AiGenDescPlaceholder = "用自然语言描述脚本要做什么；可一并说明需要的参数（如：参数「目录」类型为 folder、参数「关键字」类型为 text）和语言（如：python）。越具体，生成越准。";
+    public const string AiGenEditLabel = "修改要求（要改什么，越具体越好）";
+    public const string AiGenEditPlaceholder = "描述要如何修改这个脚本（如：增加一个「重试次数」参数，失败时自动重试；把语言改成 pwsh）…";
     public const string AiGenPreviewScript = "脚本预览（生成后展示，接受前可检查）";
     public const string AiGenPreviewIndex = "将写入 index.json 的条目";
     public const string BtnAiGenerate = "生成";
     public const string BtnAiAccept = "接受并写入";
     public const string AiStatusNoApi = "未配置 AI API：请到「设置 ▸ 编辑配置」填写 API 密钥 / 地址 / 模型";
+    public const string AiStatusNeedDesc = "请先在描述框填写内容。";
+    public const string AiStatusEditMode = "编辑现有脚本「{0}」：输入修改要求后点「生成」，预览无误再点「接受并写入」";
     public const string AiStatusGenerating = "正在生成脚本…";
     public const string AiStatusGenerated = "已生成，请检查预览后点「接受并写入」";
     public const string AiStatusWriteDone = "已写入并刷新脚本列表";
+    public const string AiStatusEditDone = "已覆盖脚本文件并更新索引条目";
     public const string AiStatusGenFail = "生成失败：{0}";
     // 配置编辑器内 AI 配置区
     public const string AiConfigSection = "AI 生成脚本（可选）";
@@ -70,6 +76,26 @@ public static class Strings
     public const string AiApiKeyPlaceholder = "sk-...（留空即不使用 AI）";
     public const string AiBaseUrlPlaceholder = "https://api.openai.com/v1";
     public const string AiModelPlaceholder = "gpt-4o-mini";
+    #endregion
+
+    #region 脚本树右键菜单
+    public const string TreeMenuCreateDir = "创建目录";
+    public const string TreeMenuCreateScript = "创建脚本（AI）";
+    public const string TreeMenuEditScript = "编辑脚本";
+    public const string TreeMenuDeleteDir = "删除目录";
+    public const string TreeMenuDeleteScript = "删除脚本";
+    // 二次确认文案（{0} = 节点名）
+    public const string TreeDeleteDirConfirm = "确定删除目录「{0}」吗？\n\n仅从索引中移除该目录及其下全部条目，不删除任何脚本文件。";
+    public const string TreeDeleteScriptConfirm = "确定删除脚本「{0}」吗？\n\n将同时删除索引条目与脚本文件，此操作不可恢复。";
+    public const string TreeDeleteDone = "已删除：{0}";
+    public const string TreeDeleteFail = "删除失败：{0}";
+    #endregion
+
+    #region 输入对话框（新建目录等）
+    public const string TitleInputNewDir = "新建目录";
+    public const string InputNewDirPrompt = "目录名称：";
+    public const string BtnOk = "确定";
+    public const string BtnCancel = "取消";
     #endregion
 
     #region 状态消息（StatusText）

@@ -31,9 +31,8 @@ public class AiGeneratedParam
 
 /// <summary>
 /// AI 脚本生成器：拼装 system prompt（script-writer 技能全文 + 生成约束与 JSON schema）、调用 <see cref="AiClient"/>、
-/// 解析结构化 JSON、把脚本写到 script/ai-generated/ 并追加进 ai-generated/index.json。
-/// 所有 AI 生成的脚本统一落在 ai-generated/ 隔离目录（自有 index.json，由根 index.json 的 include 汇聚），
-/// 不污染用户其它目录；删除由用户在 UI 直接操作（本类只负责生成/写入）。
+/// 解析结构化 JSON、把脚本写到 script/ai-generated/。同时支持「编辑」模式：载入现有脚本内容让 AI 按描述改写。
+/// 脚本文件统一落在 ai-generated/ 隔离目录；索引条目由调用方经 <see cref="ScriptIndexStore"/> 写入唯一的 script/index.json。
 /// </summary>
 public static class ScriptGenerator
 {
@@ -71,12 +70,30 @@ public static class ScriptGenerator
         return sb.ToString();
     }
 
-    /// <summary>调用 AI 生成脚本。语言与参数均随描述由 AI 自行解析（用户可在描述中一并说明），无需单独传参。</summary>
-    public static async Task<AiGeneratedScript> GenerateAsync(string description)
+    /// <summary>
+    /// 调用 AI 生成脚本。语言与参数均随描述由 AI 自行解析（用户可在描述中一并说明），无需单独传参。
+    /// 传入 <paramref name="original"/> 时为「编辑」模式：把现有脚本内容与参数一并交给 AI 按描述改写。
+    /// </summary>
+    public static async Task<AiGeneratedScript> GenerateAsync(string description, AiGeneratedScript? original = null)
     {
         var user = new StringBuilder();
-        user.AppendLine("请生成脚本，需求描述如下：");
-        user.AppendLine(description);
+        if (original == null)
+        {
+            user.AppendLine("请生成脚本，需求描述如下：");
+            user.AppendLine(description);
+        }
+        else
+        {
+            user.AppendLine("以下是 ScriptManager 中的现有脚本，请按用户的修改要求改写它（保持可运行、占位符与 params 声明一致）。");
+            user.AppendLine("---- 现有脚本 [" + original.Lang + "] " + original.Name + " ----");
+            user.AppendLine(original.Content);
+            user.AppendLine("---- 现有参数声明 ----");
+            var entry = BuildEntry(original);
+            user.AppendLine(entry["params"]?.ToJsonString() ?? "（无）");
+            user.AppendLine("---- 修改要求 ----");
+            user.AppendLine(description);
+            user.AppendLine("注意：file_name 保持与现有脚本一致（" + original.FileName + "）；除非用户明确要求换语言，lang 保持不变。");
+        }
         user.AppendLine("请只返回 JSON。");
 
         var raw = await AiClient.ChatAsync(BuildSystemPrompt(), user.ToString(), jsonMode: true);
@@ -136,58 +153,42 @@ public static class ScriptGenerator
         return result;
     }
 
-    /// <summary>预览：返回将写入 ai-generated/index.json 的单个条目（pretty JSON）。</summary>
+    /// <summary>预览：返回将写入 index.json 的单个条目（pretty JSON）。</summary>
     public static string PreviewIndexEntry(AiGeneratedScript script)
     {
         var entry = BuildEntry(script);
         return entry.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
     }
 
-    /// <summary>把生成的脚本写到 script/ai-generated/，并把条目追加进 ai-generated/index.json。返回脚本文件完整路径。</summary>
-    public static string WriteToDisk(AiGeneratedScript script)
+    /// <summary>文件名安全化：只取文件名，去掉任何路径分隔与前导点，避免目录穿越；空则给时间戳兜底名。</summary>
+    public static string SafeFileName(AiGeneratedScript script)
     {
-        var baseDir = Path.Combine(AppConfig.ScriptDir, GenDir);
-        Directory.CreateDirectory(baseDir);
-
-        // 文件名安全化：只取文件名，去掉任何路径分隔与前导点，避免目录穿越
         var safeName = Path.GetFileName(script.FileName.Replace('/', '\\').Trim().TrimStart('\\', '.'));
         if (string.IsNullOrWhiteSpace(safeName))
             safeName = "script_" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".py";
-        var scriptPath = Path.Combine(baseDir, safeName);
+        return safeName;
+    }
+
+    /// <summary>
+    /// 只把生成的脚本写到 script/ai-generated/（文件隔离目录），不触碰索引；
+    /// 索引条目由调用方经 <see cref="ScriptIndexStore"/> 插入唯一的 script/index.json。返回脚本文件完整路径。
+    /// </summary>
+    public static string WriteScriptFile(AiGeneratedScript script)
+    {
+        var baseDir = Path.Combine(AppConfig.ScriptDir, GenDir);
+        Directory.CreateDirectory(baseDir);
+        var scriptPath = Path.Combine(baseDir, SafeFileName(script));
         File.WriteAllText(scriptPath, script.Content, new UTF8Encoding(false));
-
-        var entry = BuildEntry(script);
-        entry["path"] = "./" + safeName;   // 相对 ai-generated/index.json 的目录
-
-        var indexPath = Path.Combine(baseDir, "index.json");
-        JsonArray root;
-        if (File.Exists(indexPath))
-        {
-            try
-            {
-                root = JsonNode.Parse(File.ReadAllText(indexPath, new UTF8Encoding(false)))?.AsArray() ?? new JsonArray();
-            }
-            catch
-            {
-                root = new JsonArray();
-            }
-        }
-        else
-        {
-            root = new JsonArray();
-        }
-
-        root.Add(entry);
-        File.WriteAllText(indexPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
-
         return scriptPath;
     }
 
-    private static JsonObject BuildEntry(AiGeneratedScript script)
+    /// <summary>构建该脚本对应的索引条目（path 固定指向 ai-generated/ 下的文件，相对 script 根目录）。</summary>
+    public static JsonObject BuildEntry(AiGeneratedScript script)
     {
         var entry = new JsonObject
         {
             ["name"] = script.Name,
+            ["path"] = "./" + GenDir + "/" + SafeFileName(script),
             ["lang"] = script.Lang
         };
         if (script.Params.Count > 0)

@@ -16,13 +16,13 @@
         </Grid>
 
         <StackPanel>
-            <!-- 脚本功能描述：语言与参数都在描述里一并说明，无需单独选择 -->
-            <TextBlock Text="{x:Static local:Strings.AiGenDescLabel}" Margin="0,0,0,4" />
+            <!-- 脚本功能描述：语言与参数都在描述里一并说明，无需单独选择（编辑模式下由代码-behind 换成「修改要求」文案） -->
+            <TextBlock x:Name="DescLabel" Text="{x:Static local:Strings.AiGenDescLabel}" Margin="0,0,0,4" />
             <Grid>
                 <TextBox x:Name="DescBox" Height="120" TextWrapping="Wrap" AcceptsReturn="True"
                          VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
                          Padding="6,5" Style="{StaticResource BaseTextBox}" />
-                <TextBlock Text="{x:Static local:Strings.AiGenDescPlaceholder}"
+                <TextBlock x:Name="DescPlaceholder" Text="{x:Static local:Strings.AiGenDescPlaceholder}"
                            Foreground="{DynamicResource BrushPlaceholder}"
                            Margin="9,8,9,8" TextWrapping="Wrap" IsHitTestVisible="False"
                            Visibility="{Binding Text, ElementName=DescBox, Converter={x:Static local:StringEmptyToVisibilityConverter.Instance}}" />

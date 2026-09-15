@@ -1,0 +1,28 @@
+<Window x:Class="ScriptManager.Views.InputDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:ScriptManager"
+        Width="380" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="{DynamicResource BrushWindowBg}">
+    <StackPanel Margin="16">
+        <TextBlock x:Name="PromptText" Margin="0,0,0,6" />
+        <TextBox x:Name="ValueBox" Height="26" VerticalContentAlignment="Center"
+                 Style="{StaticResource BaseTextBox}"
+                 TextChanged="ValueBox_TextChanged" />
+        <Grid Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Button x:Name="BtnOk" Grid.Column="1" Content="{x:Static local:Strings.BtnOk}"
+                    Width="88" Height="28" Margin="0,0,8,0"
+                    Style="{StaticResource BaseButtonLight}" Click="BtnOk_Click" IsDefault="True" />
+            <Button Grid.Column="2" Content="{x:Static local:Strings.BtnCancel}"
+                    Width="88" Height="28"
+                    Style="{StaticResource BaseButtonLight}" Click="BtnCancel_Click" IsCancel="True" />
+        </Grid>
+    </StackPanel>
+</Window>

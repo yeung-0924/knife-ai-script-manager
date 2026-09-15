@@ -1,9 +1,11 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using ScriptManager.Ai;
 using ScriptManager.ViewModels;
 
 namespace ScriptManager.Views;
@@ -209,12 +211,206 @@ public partial class MainWindow : Window
         dlg.ShowDialog();
     }
 
-    /// <summary>顶部「设置 ▸ AI 生成脚本」：打开 AI 脚本编辑器（模态，Owner=主窗口；接受写入后刷新脚本树）。</summary>
-    private void MenuAiGenerate_Click(object sender, RoutedEventArgs e)
+    #region 脚本树右键菜单（创建目录 / 创建脚本 / 编辑 / 删除）
+
+    /// <summary>右键命中的树节点（面板空白处为 null）；ContextMenuOpening 时赋值，各菜单动作共用。</summary>
+    private ScriptTreeItem? _ctxNode;
+
+    /// <summary>
+    /// 脚本树右键菜单：按命中目标动态构建——
+    ///  - 面板空白：创建目录 / 创建脚本（AI）；
+    ///  - 目录节点：创建目录 / 创建脚本（AI）/ 删除目录；
+    ///  - 脚本节点：编辑脚本 / 删除脚本。
+    /// 右键先把命中项置为选中（WPF 右键默认不改选中），保证动作取到的就是所点节点。
+    /// </summary>
+    private void ScriptTreeView_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
-        var dlg = new AiScriptGenWindow { Owner = this, OwnerViewModel = _vm };
+        // 命中检测：鼠标位置下的 TreeViewItem；空白处（无项）则为 null
+        var hit = VisualTreeHelper.HitTest(ScriptTreeView, Mouse.GetPosition(ScriptTreeView));
+        var hitTvi = FindParentTreeViewItem(hit?.VisualHit);
+        _ctxNode = hitTvi?.DataContext as ScriptTreeItem;
+
+        ScriptTreeView.ContextMenu = BuildTreeContextMenu(_ctxNode);
+        if (_ctxNode != null)
+            hitTvi!.IsSelected = true;
+    }
+
+    /// <summary>按节点类型构建右键菜单；node 为 null 表示面板空白（根层级）。</summary>
+    private ContextMenu BuildTreeContextMenu(ScriptTreeItem? node)
+    {
+        var cm = new ContextMenu();
+
+        if (node == null || node.Kind != ScriptTreeItem.NodeKind.Script)
+        {
+            // 面板 / 目录节点：创建目录 + 创建脚本（AI）
+            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuCreateDir, "folder-plus.svg", TreeCreateDir_Click));
+            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuCreateScript, "bot.svg", TreeCreateScript_Click));
+        }
+        else
+        {
+            // 脚本节点：编辑 + 删除
+            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuEditScript, "pencil.svg", TreeEditScript_Click));
+            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuDeleteScript, "trash-2.svg", TreeDeleteScript_Click));
+        }
+
+        if (node is { Kind: ScriptTreeItem.NodeKind.Group })
+        {
+            cm.Items.Add(new Separator());
+            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuDeleteDir, "trash-2.svg", TreeDeleteDir_Click));
+        }
+        return cm;
+    }
+
+    private static MenuItem MakeTreeMenuItem(string header, string iconFile, RoutedEventHandler onClick)
+    {
+        var mi = new MenuItem { Header = header };
+        try
+        {
+            mi.Icon = new SharpVectors.Converters.SvgViewbox
+            {
+                Width = 13,
+                Height = 13,
+                UriSource = new Uri("pack://application:,,,/assets/images/button/" + iconFile)
+            };
+        }
+        catch
+        {
+            // 图标加载失败不影响菜单功能
+        }
+        mi.Click += onClick;
+        return mi;
+    }
+
+    /// <summary>右键「创建目录」：目标 = 所点目录节点之下（面板空白 = 根层级）。输入名称 → 写唯一索引 → 刷新树。</summary>
+    private void TreeCreateDir_Click(object sender, RoutedEventArgs e)
+    {
+        var parentPath = _ctxNode is { Kind: ScriptTreeItem.NodeKind.Group } ? _ctxNode.Path : null;
+        var dlg = new InputDialog(Strings.TitleInputNewDir, Strings.InputNewDirPrompt) { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+        try
+        {
+            ScriptIndexStore.AddGroup(parentPath, dlg.Value);
+            _vm.ReloadTree();
+        }
+        catch (System.Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, Strings.TitleWindow, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    /// <summary>右键「创建脚本（AI）」：打开 AI 编辑器（创建模式），新条目将插入所点目录（面板空白 = 根层级）。</summary>
+    private void TreeCreateScript_Click(object sender, RoutedEventArgs e)
+    {
+        var parentPath = _ctxNode is { Kind: ScriptTreeItem.NodeKind.Group } ? _ctxNode.Path : null;
+        var dlg = new AiScriptGenWindow { Owner = this, OwnerViewModel = _vm, ParentGroupPath = parentPath };
         dlg.ShowDialog();
     }
+
+    /// <summary>右键「编辑脚本」：载入现有脚本内容与参数作为种子，AI 按修改要求改写后覆盖原文件并更新索引条目。</summary>
+    private void TreeEditScript_Click(object sender, RoutedEventArgs e)
+    {
+        if (_ctxNode is not { Kind: ScriptTreeItem.NodeKind.Script, Item: not null } node)
+            return;
+        var item = node.Item;
+
+        string content;
+        try
+        {
+            // 脚本统一 UTF-8 无 BOM（项目约定）；按 UTF-8 读即可
+            content = File.ReadAllText(item.ResolvedPath, System.Text.Encoding.UTF8);
+        }
+        catch (System.Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, Strings.TitleWindow, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var seed = new AiGeneratedScript
+        {
+            Name = item.Name,
+            FileName = System.IO.Path.GetFileName(item.ResolvedPath),
+            Lang = item.Lang,
+            Content = content
+        };
+        foreach (var p in item.Params ?? new List<ScriptParam>())
+        {
+            seed.Params.Add(new AiGeneratedParam
+            {
+                Name = p.Name,
+                Label = p.Label,
+                Type = p.Type,
+                Required = p.Required,
+                Options = p.Options,
+                Default = p.Default,
+                Placeholder = p.Placeholder,
+                OpenAfterRun = p.OpenAfterRun
+            });
+        }
+
+        var dlg = new AiScriptGenWindow
+        {
+            Owner = this,
+            OwnerViewModel = _vm,
+            EditSeed = seed,
+            EditTreePath = node.Path,
+            EditFilePath = item.ResolvedPath
+        };
+        dlg.ShowDialog();
+    }
+
+    /// <summary>右键「删除目录」：二次确认后仅从唯一索引移除该目录条目（含子树），不删任何脚本文件。</summary>
+    private void TreeDeleteDir_Click(object sender, RoutedEventArgs e)
+    {
+        if (_ctxNode is not { Kind: ScriptTreeItem.NodeKind.Group } node)
+            return;
+        if (MessageBox.Show(this, string.Format(Strings.TreeDeleteDirConfirm, node.Name),
+                Strings.TitleWindow, MessageBoxButton.YesNo, MessageBoxImage.Question,
+                MessageBoxResult.No) != MessageBoxResult.Yes)
+            return;
+        try
+        {
+            ScriptIndexStore.RemoveEntry(node.Path);
+            _vm.ReloadTree();
+        }
+        catch (System.Exception ex)
+        {
+            MessageBox.Show(this, string.Format(Strings.TreeDeleteFail, ex.Message),
+                Strings.TitleWindow, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    /// <summary>右键「删除脚本」：二次确认后删除索引条目与脚本文件（仅限 script 目录内，防路径穿越）。</summary>
+    private void TreeDeleteScript_Click(object sender, RoutedEventArgs e)
+    {
+        if (_ctxNode is not { Kind: ScriptTreeItem.NodeKind.Script, Item: not null } node)
+            return;
+        if (MessageBox.Show(this, string.Format(Strings.TreeDeleteScriptConfirm, node.Name),
+                Strings.TitleWindow, MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                MessageBoxResult.No) != MessageBoxResult.Yes)
+            return;
+        try
+        {
+            var removed = ScriptIndexStore.RemoveEntry(node.Path);
+
+            // 删除脚本文件：以索引里记录的相对路径为准（限定 script 目录内，防条目被改过导致误删）
+            var rel = removed["path"]?.GetValue<string>();
+            var filePath = string.IsNullOrWhiteSpace(rel)
+                ? node.Item!.ResolvedPath
+                : System.IO.Path.GetFullPath(System.IO.Path.Combine(ConfigLoader.ScriptDir, rel));
+            var scriptDir = System.IO.Path.TrimEndingDirectorySeparator(ConfigLoader.ScriptDir);
+            if (File.Exists(filePath) && filePath.StartsWith(scriptDir, StringComparison.OrdinalIgnoreCase))
+                File.Delete(filePath);
+
+            _vm.ReloadTree();
+        }
+        catch (System.Exception ex)
+        {
+            MessageBox.Show(this, string.Format(Strings.TreeDeleteFail, ex.Message),
+                Strings.TitleWindow, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    #endregion
 
     /// <summary>
     /// 自定义 ContextMenu 定位：默认让菜单右边缘与按钮右边缘对齐（防止在窗口右边缘被截断），

@@ -1,7 +1,0 @@
-[
-  {
-    "name": "获取系统信息",
-    "path": "./Get-SystemInfo.ps1",
-    "lang": "powershell"
-  }
-]
