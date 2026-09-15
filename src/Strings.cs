@@ -41,12 +41,37 @@ public static class Strings
         public const string MenuFile = "文件";
         public const string MenuSettings = "设置";
         public const string MenuEditConfig = "编辑配置...";
+        public const string MenuAiGenerate = "AI 生成脚本...";
         public const string TitleConfigEditor = "配置编辑";
         public const string ConfigEditorBrowseFolder = "选择目录";
         public const string ConfigEditorBrowseFile = "选择脚本索引文件 (index.json)";
         public const string ConfigEditorTimeoutLabel = "默认执行超时(秒)";
         public const string ConfigEditorTimeoutPlaceholder = "0（不限制）";
         #endregion
+
+    #region AI 生成脚本
+    public const string TitleAiGenerate = "AI 生成脚本";
+    public const string AiGenDescLabel = "脚本功能描述（越具体越好，含输入输出预期）";
+    public const string AiGenLangLabel = "语言";
+    public const string AiGenParamsLabel = "参数说明（可选）";
+    public const string AiGenPreviewScript = "脚本预览（生成后展示，接受前可检查）";
+    public const string AiGenPreviewIndex = "将写入 index.json 的条目";
+    public const string BtnAiGenerate = "生成";
+    public const string BtnAiAccept = "接受并写入";
+    public const string AiStatusNoApi = "未配置 AI API：请到「设置 ▸ 编辑配置」填写 API 密钥 / 地址 / 模型";
+    public const string AiStatusGenerating = "正在生成脚本…";
+    public const string AiStatusGenerated = "已生成，请检查预览后点「接受并写入」";
+    public const string AiStatusWriteDone = "已写入并刷新脚本列表";
+    public const string AiStatusGenFail = "生成失败：{0}";
+    // 配置编辑器内 AI 配置区
+    public const string AiConfigSection = "AI 生成脚本（可选）";
+    public const string AiApiKeyLabel = "API 密钥";
+    public const string AiBaseUrlLabel = "API 地址";
+    public const string AiModelLabel = "模型";
+    public const string AiApiKeyPlaceholder = "sk-...（留空即不使用 AI）";
+    public const string AiBaseUrlPlaceholder = "https://api.openai.com/v1";
+    public const string AiModelPlaceholder = "gpt-4o-mini";
+    #endregion
 
     #region 状态消息（StatusText）
     public const string StatusReady = "就绪";

@@ -103,6 +103,42 @@ public static class AppConfig
     /// <summary>脚本索引 json 的完整路径（固定为 ScriptIndexFilePath）。</summary>
     public static string ScriptIndexJsonPath => ScriptIndexFilePath;
 
+    #region AI 生成脚本配置（[ai] 节）
+
+    /// <summary>是否已配置 AI API（有 API 密钥即视为可用）。</summary>
+    public static bool AiEnabled => !string.IsNullOrWhiteSpace(AiApiKey);
+
+    /// <summary>AI API 密钥（[ai] api_key）。为空表示未配置。</summary>
+    public static string AiApiKey => GetValue("ai", "api_key")?.Trim() ?? "";
+
+    /// <summary>
+    /// AI API 基地址（[ai] base_url）。留空/未配置时回退到 OpenAI 官方地址。
+    /// OpenAI 兼容协议：DeepSeek / 通义 / 本地 Ollama 等只需改此处即可共用同一套调用逻辑。
+    /// </summary>
+    public static string AiBaseUrl
+    {
+        get
+        {
+            var v = GetValue("ai", "base_url")?.Trim();
+            return string.IsNullOrWhiteSpace(v) ? "https://api.openai.com/v1" : v;
+        }
+    }
+
+    /// <summary>
+    /// AI 模型名（[ai] model）。留空/未配置时回退到 gpt-4o-mini（轻量、便宜、足够生成脚本）。
+    /// 用户可在设置里改成任意 OpenAI 兼容模型名（如 gpt-4o、deepseek-chat 等）。
+    /// </summary>
+    public static string AiModel
+    {
+        get
+        {
+            var v = GetValue("ai", "model")?.Trim();
+            return string.IsNullOrWhiteSpace(v) ? "gpt-4o-mini" : v;
+        }
+    }
+
+    #endregion
+
     /// <summary>
     /// 运行时持久化「文件▸打开」选择的脚本索引文件到 config.ini 的 [script] script_index_file（存绝对路径）。
     /// 与「设置▸编辑配置▸脚本索引文件」写的是同一个键，二者效果一致；保留其它 section / key / 注释与顺序；

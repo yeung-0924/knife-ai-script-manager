@@ -29,6 +29,11 @@ public partial class ConfigEditorWindow : Window
     private readonly List<ConfigRow> _rows = new();
     // 默认执行超时(秒)：唯一可手输字段，空白 = 不限制（0）。
     private readonly TimeoutRow _timeout = new();
+    // AI 生成脚本配置（[ai] 节）：base_url / model 用可手输文本行；api_key 单独用 PasswordBox 处理。
+    private readonly List<AiTextRow> _aiRows = new();
+    private readonly AiTextRow _aiBaseUrlRow = new();
+    private readonly AiTextRow _aiModelRow = new();
+    private string _aiApiKey = "";
 
     /// <summary>宿主主窗口的视图模型，保存后用于触发左侧目录树按新脚本索引重建；可为 null（防御性）。</summary>
     public MainViewModel? OwnerViewModel { get; set; }
@@ -50,6 +55,24 @@ public partial class ConfigEditorWindow : Window
         _timeout.Placeholder = Strings.ConfigEditorTimeoutPlaceholder;
         _timeout.Value = string.IsNullOrWhiteSpace(tRaw) || tRaw == "0" ? "" : tRaw;
         TimeoutGrid.DataContext = _timeout;
+
+        // AI 生成脚本配置（[ai] 节）：base_url / model 用可手输文本行；api_key 用 PasswordBox（支持「显示」切换）。
+        _aiBaseUrlRow.Key = "base_url";
+        _aiBaseUrlRow.Label = Strings.AiBaseUrlLabel;
+        _aiBaseUrlRow.Placeholder = Strings.AiBaseUrlPlaceholder;
+        _aiBaseUrlRow.Value = AppConfig.GetRawValue("ai", "base_url") ?? "";
+        _aiModelRow.Key = "model";
+        _aiModelRow.Label = Strings.AiModelLabel;
+        _aiModelRow.Placeholder = Strings.AiModelPlaceholder;
+        _aiModelRow.Value = AppConfig.GetRawValue("ai", "model") ?? "";
+        _aiRows.Add(_aiBaseUrlRow);
+        _aiRows.Add(_aiModelRow);
+        AiRows.ItemsSource = _aiRows;
+
+        var ak = AppConfig.GetRawValue("ai", "api_key") ?? "";
+        _aiApiKey = ak;
+        AiApiKeyBox.Password = ak;
+        AiApiKeyTextBox.Text = ak;
     }
 
     /// <summary>
@@ -133,6 +156,10 @@ public partial class ConfigEditorWindow : Window
             foreach (var row in _rows)
                 AppConfig.SetRawValue("script", row.Key, row.Value.Trim());
             AppConfig.SetRawValue("script", "default_timeout", SanitizeTimeout(_timeout.Value));
+            // AI 生成脚本配置（[ai] 节）：api_key 留空即移除该键（等同未配置）；base_url/model 同上。
+            AppConfig.SetRawValue("ai", "api_key", _aiApiKey.Trim());
+            AppConfig.SetRawValue("ai", "base_url", _aiBaseUrlRow.Value.Trim());
+            AppConfig.SetRawValue("ai", "model", _aiModelRow.Value.Trim());
             AppConfig.Reload();
             // cache_dir 迁移 + 标准目录图标刷新：使目录类配置改动保存即生效，无需重启
             ApplyLiveEffects();
@@ -170,6 +197,38 @@ public partial class ConfigEditorWindow : Window
 
     /// <summary>清除超时字段：置空即回落到「不限制」（0）。</summary>
     private void TimeoutClear_Click(object sender, RoutedEventArgs e) => _timeout.Value = "";
+
+    #region AI 生成脚本配置（[ai] 节）
+
+    /// <summary>API 密钥「显示」复选框：切换 PasswordBox / TextBox，并同步当前明文到目标控件。</summary>
+    private void AiApiKeyReveal_Changed(object sender, RoutedEventArgs e)
+    {
+        if (AiApiKeyReveal.IsChecked == true)
+            AiApiKeyTextBox.Text = AiApiKeyBox.Password;
+        else
+            AiApiKeyBox.Password = AiApiKeyTextBox.Text;
+    }
+
+    /// <summary>隐藏态下（PasswordBox）更新：仅当处于隐藏态时记录明文。</summary>
+    private void AiApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (AiApiKeyReveal.IsChecked != true) _aiApiKey = AiApiKeyBox.Password;
+    }
+
+    /// <summary>显示态下（TextBox）更新：仅当处于显示态时记录明文。</summary>
+    private void AiApiKeyTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (AiApiKeyReveal.IsChecked == true) _aiApiKey = AiApiKeyTextBox.Text;
+    }
+
+    /// <summary>AI 文本行（base_url / model）的 × 清空：置空即回落到占位符默认值。</summary>
+    private void AiTextClear_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AiTextRow row })
+            row.Value = "";
+    }
+
+    #endregion
 
     /// <summary>超时输入框仅允许数字，拦截其它字符的输入。</summary>
     private void Timeout_PreviewTextInput(object sender, TextCompositionEventArgs e)
@@ -226,6 +285,24 @@ public class TimeoutRow : INotifyPropertyChanged
     public string Placeholder { get; set; } = "";
 
     // Value 保存用户输入的纯数字字符串；空白 = 不限制。
+    private string _value = "";
+    public string Value
+    {
+        get => _value;
+        set { if (_value != value) { _value = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value))); } }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+}
+
+/// <summary>AI 配置可手输文本行（base_url / model）绑定模型：带占位符与 × 清空，可编辑。</summary>
+public class AiTextRow : INotifyPropertyChanged
+{
+    public string Key { get; set; } = "";
+    public string Label { get; set; } = "";
+    /// <summary>未填写时显示的占位提示（如 https://api.openai.com/v1 / gpt-4o-mini）。</summary>
+    public string Placeholder { get; set; } = "";
+
     private string _value = "";
     public string Value
     {

@@ -209,6 +209,13 @@ public partial class MainWindow : Window
         dlg.ShowDialog();
     }
 
+    /// <summary>顶部「设置 ▸ AI 生成脚本」：打开 AI 脚本编辑器（模态，Owner=主窗口；接受写入后刷新脚本树）。</summary>
+    private void MenuAiGenerate_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new AiScriptGenWindow { Owner = this, OwnerViewModel = _vm };
+        dlg.ShowDialog();
+    }
+
     /// <summary>
     /// 自定义 ContextMenu 定位：默认让菜单右边缘与按钮右边缘对齐（防止在窗口右边缘被截断），
     /// 若左侧空间不足则回退到左边缘对齐。

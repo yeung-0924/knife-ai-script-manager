@@ -28,6 +28,10 @@
     "include": "./test/index.json"
   },
   {
+    "name": "AI 生成",
+    "include": "./ai-generated/index.json"
+  },
+  {
     "name": "README",
     "path": "./readme.cmd",
     "lang": "cmd"

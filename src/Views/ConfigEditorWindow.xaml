@@ -117,6 +117,79 @@
                     </Grid>
                 </Border>
             </Grid>
+
+            <!-- AI 生成脚本配置：[ai] 节 api_key / base_url / model。
+                 与上方「目录/文件选择」不同，这三项是纯文本配置，用可手输行（带 × 清空）；
+                 API 密钥用 PasswordBox 默认隐藏，勾选「显示」切换为明文 TextBox，避免泄露。 -->
+            <TextBlock Text="{x:Static local:Strings.AiConfigSection}"
+                       FontWeight="Bold" Margin="0,16,0,8" />
+
+            <!-- API 密钥：PasswordBox（默认隐藏）+ 复选框切换为明文 TextBox -->
+            <Grid Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="104" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{x:Static local:Strings.AiApiKeyLabel}"
+                           VerticalAlignment="Center" Margin="0,0,6,0" />
+                <DockPanel Grid.Column="1" LastChildFill="True">
+                    <CheckBox DockPanel.Dock="Right" x:Name="AiApiKeyReveal"
+                              Content="显示" VerticalAlignment="Center" Margin="8,0,0,0"
+                              Checked="AiApiKeyReveal_Changed" Unchecked="AiApiKeyReveal_Changed" />
+                    <Grid>
+                        <PasswordBox x:Name="AiApiKeyBox" Height="24" VerticalAlignment="Center"
+                                     PasswordChanged="AiApiKeyBox_PasswordChanged"
+                                     Visibility="{Binding IsChecked, ElementName=AiApiKeyReveal, Converter={x:Static local:BooleanToVisibilityConverter.Instance}}" />
+                        <TextBox x:Name="AiApiKeyTextBox" Height="24" VerticalAlignment="Center"
+                                 VerticalContentAlignment="Center"
+                                 TextChanged="AiApiKeyTextBox_TextChanged"
+                                 Visibility="{Binding IsChecked, ElementName=AiApiKeyReveal, Converter={x:Static local:InverseBoolToVisibilityConverter.Instance}}" />
+                    </Grid>
+                </DockPanel>
+            </Grid>
+
+            <!-- API 地址 / 模型：可手输文本行（带 × 清空 + 占位符） -->
+            <ItemsControl x:Name="AiRows">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="104" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding Label}"
+                                       VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <Border Grid.Column="1" BorderThickness="1" CornerRadius="4"
+                                    Height="24" VerticalAlignment="Center" SnapsToDevicePixels="True"
+                                    Background="{DynamicResource BrushPanelBg}">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+                                        <Style.Triggers>
+                                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                                <Setter Property="BorderBrush" Value="{DynamicResource BrushPrimary}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Grid>
+                                    <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                             Style="{StaticResource ClearableTextBoxInline}" />
+                                    <TextBlock Text="{Binding Placeholder}"
+                                               Foreground="{DynamicResource BrushPlaceholder}"
+                                               Margin="4,0,0,0" VerticalAlignment="Center"
+                                               IsHitTestVisible="False"
+                                               Visibility="{Binding Value, Converter={x:Static local:StringEmptyToVisibilityConverter.Instance}}" />
+                                    <Button Style="{StaticResource ClearButton}"
+                                            Click="AiTextClear_Click"
+                                            ToolTip="{x:Static local:Strings.ClearButtonToolTip}"
+                                            Visibility="{Binding Value, Converter={x:Static local:StringNotEmptyToVisibilityConverter.Instance}}" />
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
         </StackPanel>
     </DockPanel>
 </Window>
