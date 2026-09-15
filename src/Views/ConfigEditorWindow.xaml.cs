@@ -22,7 +22,7 @@ namespace ScriptManager.Views;
 /// </list>
 /// 目录/文件项均为只读选择框（浏览按钮），不可手输；未自定义时留空并显示默认相对路径占位符，
 /// 点击 × 或「默认值」可清除、回落到内置相对默认（script\index.json / lib / runtime / cache / log）。
-/// 「默认执行超时(秒)」与 AI「最大对话轮次」是弹窗内允许手输的数字项（前者空白 = 不限制，后者空白 = 默认 1）。
+/// 「默认执行超时(秒)」与 AI「最大追问轮次」是弹窗内允许手输的数字项（前者空白 = 不限制，后者空白 = 默认 0）。
 /// </summary>
 public partial class ConfigEditorWindow : Window
 {
@@ -30,7 +30,7 @@ public partial class ConfigEditorWindow : Window
     // 默认执行超时(秒)：数字手输字段，空白 = 不限制（0）。
     private readonly NumericRow _timeout = new();
     // AI 生成脚本配置（[ai] 节）：base_url / model 用可手输文本行；api_key 单独用 PasswordBox 处理；
-    // max_rounds（最大连续对话轮次）为数字手输，空白 = 默认 1。
+    // max_rounds（最大追问轮次）为数字手输，空白 = 默认 0（不追问）。
     private readonly List<AiTextRow> _aiRows = new();
     private readonly AiTextRow _aiBaseUrlRow = new();
     private readonly AiTextRow _aiModelRow = new();
@@ -71,7 +71,7 @@ public partial class ConfigEditorWindow : Window
         _aiRows.Add(_aiModelRow);
         AiRows.ItemsSource = _aiRows;
 
-        // 最大连续对话轮次（[ai] max_rounds）：留空 = 默认 1（仅首轮生成、无追问），
+        // 最大追问轮次（[ai] max_rounds）：留空 = 默认 0（仅首轮生成、不追问），
         // 非法值由 AppConfig.AiMaxRounds 统一按 1 处理；显示原始输入，保存时做纯数字清洗。
         var mrRaw = AppConfig.GetRawValue("ai", "max_rounds")?.Trim();
         _aiMaxRounds.Placeholder = Strings.AiMaxRoundsPlaceholder;
@@ -166,7 +166,7 @@ public partial class ConfigEditorWindow : Window
                 AppConfig.SetRawValue("script", row.Key, row.Value.Trim());
             AppConfig.SetRawValue("script", "default_timeout", SanitizeDigits(_timeout.Value));
             // AI 生成脚本配置（[ai] 节）：api_key 留空即移除该键（等同未配置）；base_url/model 同上；
-            // max_rounds 留空即回落默认 1（AppConfig 对非数字 / <1 的值也按 1 处理）。
+            // max_rounds 留空即回落默认 0（AppConfig 对非数字 / 负数的值也按 0 处理）。
             AppConfig.SetRawValue("ai", "api_key", _aiApiKey.Trim());
             AppConfig.SetRawValue("ai", "base_url", _aiBaseUrlRow.Value.Trim());
             AppConfig.SetRawValue("ai", "model", _aiModelRow.Value.Trim());
@@ -209,7 +209,7 @@ public partial class ConfigEditorWindow : Window
     /// <summary>清除超时字段：置空即回落到「不限制」（0）。</summary>
     private void TimeoutClear_Click(object sender, RoutedEventArgs e) => _timeout.Value = "";
 
-    /// <summary>清除最大对话轮次：置空即回落到默认 1（仅首轮生成、无追问）。</summary>
+    /// <summary>清除最大追问轮次：置空即回落到默认 0（不追问）。</summary>
     private void AiMaxRoundsClear_Click(object sender, RoutedEventArgs e) => _aiMaxRounds.Value = "";
 
     #region AI 生成脚本配置（[ai] 节）

@@ -194,7 +194,7 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <!-- 最大对话轮次：一次编辑会话中与模型对话的轮数上限（含首轮生成），留空 = 默认 1。
+            <!-- 最大追问轮次：一次编辑会话中、首轮生成之外允许的追问轮数，留空 = 默认 0（不追问）。
                  数字手输（拦截非数字），× 清除回落默认；样式与「默认执行超时」一致。 -->
             <Grid x:Name="AiMaxRoundsGrid">
                 <Grid.ColumnDefinitions>

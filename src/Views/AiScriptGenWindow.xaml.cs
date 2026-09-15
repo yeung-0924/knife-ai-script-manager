@@ -17,8 +17,8 @@ namespace ScriptManager.Views;
 /// 占位符切换为追问提示，再次「生成」即带着历史上下文迭代改写，对话历史持久化到
 /// cache/{脚本id}/（每次编辑会话一个文件，删除脚本不清缓存）。
 /// 「接受并写入」即结束本次编辑会话：对话状态重置，下次生成重新发起（编辑模式直接关闭窗口）。
-/// 一次编辑会话的连续对话轮数受配置 [ai] max_rounds 限制（默认 1 = 仅首轮生成、无追问），
-/// 达到上限后「生成」禁用，只能接受当前结果或关闭窗口重新发起。
+/// 一次编辑会话的追问轮数受配置 [ai] max_rounds 限制（默认 0 = 仅首轮生成、不追问；
+/// N = 原始会话 + N 轮追问），达到上限后「生成」禁用，只能接受当前结果或关闭窗口重新发起。
 /// 未配置 AI API 时禁用生成并提示先去「设置 ▸ 编辑配置」。
 /// </summary>
 public partial class AiScriptGenWindow : Window
@@ -43,7 +43,8 @@ public partial class AiScriptGenWindow : Window
     private AiConversation? _conversation;
     // 本会话内脚本的稳定 id：首轮分配 / 编辑模式取种子，追问轮沿用（文件名、索引条目、缓存目录都认它）
     private string? _scriptId;
-    // 本会话已完成的对话轮数（含首轮生成），用于对照 [ai] max_rounds 上限；「接受并写入」后归零
+    // 本会话已完成的对话轮数（首轮 = 1，追问逐次累加）；追问已用次数 = _roundsUsed - 1，
+    // 对照 [ai] max_rounds（最大追问轮次，默认 0 = 不追问）判断能否继续；「接受并写入」后归零
     private int _roundsUsed;
 
     private bool IsEditMode => EditSeed != null;
@@ -83,9 +84,10 @@ public partial class AiScriptGenWindow : Window
             return;
         }
 
-        // 轮次上限（含首轮生成）：达到 [ai] max_rounds 后禁止继续生成（防御性，正常路径已在下方禁用按钮）
+        // 追问轮次上限（[ai] max_rounds = 首轮之外允许的追问数，默认 0 = 不追问）：
+        // 已用追问数 = _roundsUsed - 1（防御性检查，正常路径已在生成完成后禁用按钮）
         var maxRounds = AppConfig.AiMaxRounds;
-        if (_roundsUsed >= maxRounds)
+        if (_roundsUsed - 1 >= maxRounds)
         {
             StatusText.Text = string.Format(Strings.AiStatusRoundLimit, maxRounds);
             BtnGenerate.IsEnabled = false;
@@ -136,8 +138,8 @@ public partial class AiScriptGenWindow : Window
             PreviewScriptLabel.Text = Strings.AiGenPreviewScript;
             ScriptPreview.Text = _result.Content;
             _roundsUsed++;
-            // 已达轮次上限：状态栏提示收尾，按钮在 finally 中保持禁用；否则正常提示检查预览
-            StatusText.Text = _roundsUsed >= AppConfig.AiMaxRounds
+            // 已达追问上限（默认 0 = 首轮后即止）：状态栏提示收尾，按钮在 finally 中保持禁用
+            StatusText.Text = _roundsUsed - 1 >= AppConfig.AiMaxRounds
                 ? string.Format(Strings.AiStatusRoundLimit, AppConfig.AiMaxRounds)
                 : Strings.AiStatusGenerated;
             BtnAccept.IsEnabled = true;
@@ -155,8 +157,8 @@ public partial class AiScriptGenWindow : Window
         }
         finally
         {
-            // 生成完成后，仅当对话轮数未达上限时才允许再次生成（失败不计入轮数）
-            BtnGenerate.IsEnabled = _roundsUsed < AppConfig.AiMaxRounds;
+            // 已用追问数（_roundsUsed - 1）达上限后禁止再次生成（失败不计入轮数；首轮失败时为 -1，恒允许重试）
+            BtnGenerate.IsEnabled = _roundsUsed - 1 < AppConfig.AiMaxRounds;
         }
     }
 

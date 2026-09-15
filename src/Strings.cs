@@ -70,7 +70,7 @@ public static class Strings
     public const string AiStatusWriteDone = "已写入并刷新脚本列表";
     public const string AiStatusEditDone = "已覆盖脚本文件并更新索引条目";
     public const string AiStatusGenFail = "生成失败：{0}";
-    public const string AiStatusRoundLimit = "已达最大对话轮次（{0}）：请点「接受并写入」保存结果，或关闭窗口后重新发起";
+    public const string AiStatusRoundLimit = "已达最大追问轮次（{0}）：请点「接受并写入」保存结果，或关闭窗口后重新发起";
     // 配置编辑器内两个分区标题
     public const string WorkPathSection = "工作路径";
     // 配置编辑器内 AI 配置区（模型配置）
@@ -78,11 +78,11 @@ public static class Strings
     public const string AiApiKeyLabel = "API 密钥";
     public const string AiBaseUrlLabel = "API 地址";
     public const string AiModelLabel = "模型";
-    public const string AiMaxRoundsLabel = "最大对话轮次";
+    public const string AiMaxRoundsLabel = "最大追问轮次";
     public const string AiApiKeyPlaceholder = "sk-...（留空即不使用 AI）";
     public const string AiBaseUrlPlaceholder = "https://api.openai.com/v1 或 https://openrouter.ai/api/v1（填到 /v1 即可）";
     public const string AiModelPlaceholder = "gpt-4o-mini";
-    public const string AiMaxRoundsPlaceholder = "1（仅首轮生成，无追问）";
+    public const string AiMaxRoundsPlaceholder = "0（不追问，仅首轮生成）";
     #endregion
 
     #region 脚本树右键菜单

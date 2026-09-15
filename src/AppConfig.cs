@@ -138,16 +138,16 @@ public static class AppConfig
     }
 
     /// <summary>
-    /// 最大连续对话轮次（[ai] max_rounds）：一次编辑会话中与模型对话的轮数上限（含首轮生成）。
-    /// 默认 1 = 仅首轮生成、无追问；配置为 N 时首轮之外还允许 N-1 轮追问。
-    /// 非法值（非数字 / 小于 1）一律按默认 1 处理；改动保存即生效，无需重启。
+    /// 最大追问轮次（[ai] max_rounds）：一次编辑会话中、首轮生成之外允许的追问轮数。
+    /// 默认 0 = 仅首轮生成、不追问；N = 原始会话 + N 轮追问。
+    /// 非法值（非数字 / 负数）一律按默认 0 处理；改动保存即生效，无需重启。
     /// </summary>
     public static int AiMaxRounds
     {
         get
         {
             var raw = GetValue("ai", "max_rounds");
-            return int.TryParse(raw, out var v) && v >= 1 ? v : 1;
+            return int.TryParse(raw, out var v) && v >= 0 ? v : 0;
         }
     }
 
