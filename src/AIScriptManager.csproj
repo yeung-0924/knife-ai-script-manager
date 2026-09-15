@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>ScriptManager</AssemblyName>
+    <AssemblyName>AIScriptManager</AssemblyName>
     <ApplicationIcon>..\assets\images\app.ico</ApplicationIcon>
   </PropertyGroup>
 

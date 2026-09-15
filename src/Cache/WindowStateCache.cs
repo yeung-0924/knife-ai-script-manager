@@ -1,7 +1,7 @@
 using System;
 using System.Windows;
 
-namespace ScriptManager.Cache;
+namespace AIScriptManager.Cache;
 
 /// <summary>
 /// 窗口状态缓存：记住窗口的尺寸与状态（普通/最大化/全屏）。

@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
 
-namespace ScriptManager;
+namespace AIScriptManager;
 
 /// <summary>
 /// 可执行文件校验：用用户选择的 exe 实跑一条该语言的「获取版本号」命令，并验证输出

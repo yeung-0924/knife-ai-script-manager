@@ -4,9 +4,9 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-using ScriptManager.Cache;
+using AIScriptManager.Cache;
 
-namespace ScriptManager.Cache;
+namespace AIScriptManager.Cache;
 
 /// <summary>
 /// 运行时路径缓存：按 lang 维护各语言的执行程序路径（每种语言一条）。

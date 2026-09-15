@@ -5,10 +5,10 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using ScriptManager.Ai;
-using ScriptManager.ViewModels;
+using AIScriptManager.Ai;
+using AIScriptManager.ViewModels;
 
-namespace ScriptManager.Views;
+namespace AIScriptManager.Views;
 
 /// <summary>
 /// 主窗口代码-behind：极薄层，仅做 DataContext 绑定、TreeView 选中转发、窗口状态持久化、默认展开所有节点。
@@ -27,13 +27,13 @@ public partial class MainWindow : Window
         DataContext = _vm;
 
         // 窗口显示前就位：全屏/最大化立即生效，避免先普通尺寸闪一帧（位置不缓存）
-        ScriptManager.Cache.WindowStateCache.ApplyPreShow(this);
+        AIScriptManager.Cache.WindowStateCache.ApplyPreShow(this);
 
         // 窗口加载完成后：普通窗口恢复尺寸，并把初始焦点设到左侧目录树，
         // 避免默认焦点落到顶部编码框导致其蓝框高亮
         Loaded += (_, _) =>
         {
-            ScriptManager.Cache.WindowStateCache.ApplyNormalSize(this);
+            AIScriptManager.Cache.WindowStateCache.ApplyNormalSize(this);
             ScriptTreeView.Focus();
         };
 
@@ -573,7 +573,7 @@ public partial class MainWindow : Window
     {
         // 关闭时持久化：窗口几何状态 + 目录树展开状态，下次启动恢复
         _vm.SaveTreeState();
-        ScriptManager.Cache.WindowStateCache.Save(this);
+        AIScriptManager.Cache.WindowStateCache.Save(this);
         base.OnClosed(e);
     }
 }

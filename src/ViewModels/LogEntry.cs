@@ -1,4 +1,4 @@
-namespace ScriptManager.ViewModels;
+namespace AIScriptManager.ViewModels;
 
 /// <summary>
 /// 单条日志模型：区分颜色（stdout 灰、error 红、系统/退出码 青），供 WPF RichTextBox/FlowDocument 渲染多色输出。

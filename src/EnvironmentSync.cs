@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Win32;
 
-namespace ScriptManager;
+namespace AIScriptManager;
 
 /// <summary>
 /// 环境变量同步：从注册表（Machine + User）重新加载环境变量到当前进程。

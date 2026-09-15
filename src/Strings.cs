@@ -1,4 +1,4 @@
-namespace ScriptManager;
+namespace AIScriptManager;
 
 /// <summary>
 /// 集中管理所有用户可见的文本（按钮、标题、状态消息、占位提示、对话框文案等），
@@ -16,7 +16,7 @@ public static class Strings
     public const string TitleScriptParams = "脚本参数";
     public const string TitleScriptPreview = "脚本预览";
     public const string TitleExecLog = "执行日志";
-    public const string TitleWindow = "脚本管理器";
+    public const string TitleWindow = "AI脚本管理器";
     #endregion
 
     #region 按钮

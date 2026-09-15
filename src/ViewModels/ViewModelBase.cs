@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace ScriptManager.ViewModels;
+namespace AIScriptManager.ViewModels;
 
 /// <summary>
 /// MVVM 基类：实现 INotifyPropertyChanged，供所有 ViewModel 复用属性通知。

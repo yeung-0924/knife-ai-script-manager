@@ -3,7 +3,7 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
 
-namespace ScriptManager;
+namespace AIScriptManager;
 
 /// <summary>
 /// WPF 应用入口（替代原 WinForms 的 Program.cs）。

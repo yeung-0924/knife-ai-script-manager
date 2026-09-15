@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 
-namespace ScriptManager;
+namespace AIScriptManager;
 
 /// <summary>
 /// 用户侧配置：读取 exe 同级的 config/config.ini。各配置项均为「保存即生效、无需重启」：

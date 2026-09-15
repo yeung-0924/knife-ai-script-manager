@@ -1,6 +1,6 @@
-using ScriptManager.Cache;
+using AIScriptManager.Cache;
 
-namespace ScriptManager.ViewModels;
+namespace AIScriptManager.ViewModels;
 
 /// <summary>
 /// 日志面板显示选项（所有脚本共享）：显示行号 / 显示时间。

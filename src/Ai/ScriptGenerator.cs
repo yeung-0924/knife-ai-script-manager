@@ -3,9 +3,9 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace ScriptManager.Ai;
+namespace AIScriptManager.Ai;
 
-/// <summary>AI 生成结果：一个可被 ScriptManager 加载运行的脚本及其索引条目。</summary>
+/// <summary>AI 生成结果：一个可被 AIScriptManager 加载运行的脚本及其索引条目。</summary>
 public class AiGeneratedScript
 {
     /// <summary>条目唯一 id（GUID）。创建流程落盘前由 <see cref="ScriptGenerator.BuildEntry"/> 补齐；编辑模式沿用原条目的 id。</summary>
@@ -50,9 +50,9 @@ public static class ScriptGenerator
         sb.AppendLine(skill);
         sb.AppendLine();
         sb.AppendLine("----");
-        sb.AppendLine("你是 ScriptManager 的内置「AI 脚本编辑器」。根据用户的自然语言描述，生成一个可被 ScriptManager 直接加载运行的脚本。");
+        sb.AppendLine("你是 AIScriptManager 的内置「AI 脚本编辑器」。根据用户的自然语言描述，生成一个可被 AIScriptManager 直接加载运行的脚本。");
         sb.AppendLine("要求：");
-        sb.AppendLine("1. 严格遵循上方「ScriptManager 脚本编写指南」的全部约定：占位符 _p{NAME}、脚本头部「更新时间」行、UTF-8 无 BOM、可选 ANSI 颜色、段标题等（物理文件由程序按 UUID 无扩展名存储，lang 决定解释器，无需在文件命名上纠结）。");
+        sb.AppendLine("1. 严格遵循上方「AIScriptManager 脚本编写指南」的全部约定：占位符 _p{NAME}、脚本头部「更新时间」行、UTF-8 无 BOM、可选 ANSI 颜色、段标题等（物理文件由程序按 UUID 无扩展名存储，lang 决定解释器，无需在文件命名上纠结）。");
         sb.AppendLine("2. 脚本内所有可配置项都必须写成 _p{参数名} 占位符，并在返回 JSON 的 params 中声明对应参数；占位符名字必须与 params[].name 字面完全一致（全大写 + 下划线）。");
         sb.AppendLine("3. 若用户指定了语言则使用该语言，否则选择最合适的语言。只从以下 9 种中选择：powershell / pwsh / cmd / bash / java / node / python / go / rust。");
         sb.AppendLine("4. 只返回一个 JSON 对象（不要任何解释文字、不要 markdown 代码块、不要 ``` 包裹），结构如下：");
@@ -88,7 +88,7 @@ public static class ScriptGenerator
         }
         else
         {
-            user.AppendLine("以下是 ScriptManager 中的现有脚本，请按用户的修改要求改写它（保持可运行、占位符与 params 声明一致）。");
+            user.AppendLine("以下是 AIScriptManager 中的现有脚本，请按用户的修改要求改写它（保持可运行、占位符与 params 声明一致）。");
             user.AppendLine("---- 现有脚本 [" + original.Lang + "] " + original.Name + " ----");
             user.AppendLine(original.Content);
             user.AppendLine("---- 现有参数声明 ----");

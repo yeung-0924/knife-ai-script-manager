@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace ScriptManager;
+namespace AIScriptManager;
 
 /// <summary>
 /// 唯一脚本索引（script/index.json）的读写层。索引为单文件，脚本树右键菜单的

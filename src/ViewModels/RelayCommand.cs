@@ -1,7 +1,7 @@
 using System;
 using System.Windows.Input;
 
-namespace ScriptManager.ViewModels;
+namespace AIScriptManager.ViewModels;
 
 /// <summary>
 /// 通用 ICommand 实现：将命令执行与可用性判定委托给外部方法，供 MVVM 绑定使用。

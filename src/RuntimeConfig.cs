@@ -2,9 +2,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 
-using ScriptManager.Cache;
+using AIScriptManager.Cache;
 
-namespace ScriptManager;
+namespace AIScriptManager;
 
 /// <summary>
 /// 按 lang 维护运行程序路径（每种语言一条），持久化到 cache/runtimes.json（IO 见 RuntimeConfigCache）。

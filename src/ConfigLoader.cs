@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 
-namespace ScriptManager;
+namespace AIScriptManager;
 
 /// <summary>
 /// 负责定位脚本目录、读取并校验脚本索引 json（顶层为数组）。

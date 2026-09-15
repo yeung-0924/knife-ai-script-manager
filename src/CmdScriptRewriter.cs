@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
-namespace ScriptManager;
+namespace AIScriptManager;
 
 /// <summary>
 /// cmd/bat 专用预处理：把脚本内容里的非 ASCII 片段抽成环境变量占位符，使脚本在字节层面降为 ASCII，

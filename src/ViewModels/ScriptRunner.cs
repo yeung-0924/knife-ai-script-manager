@@ -4,7 +4,7 @@ using System.IO;
 using System.Text;
 using System.Threading;
 
-namespace ScriptManager.ViewModels;
+namespace AIScriptManager.ViewModels;
 
 /// <summary>
 /// 封装脚本执行细节：拼装参数、启动进程、实时捕获 stdout/stderr、支持管理员提权（runas）。
@@ -132,7 +132,7 @@ public class ScriptRunner
             // 这些行必须排在 chcp 65001 之后：此时代码页已切 UTF-8，bat 里的中文字节才会被正确解码。
             var body = new StringBuilder();
             body.Append("@echo off\r\nchcp 65001 >nul\r\n");
-            // 脚本管理器提供的目录环境变量：ShellExecute 不支持 lpEnvironment，
+            // AI脚本管理器提供的目录环境变量：ShellExecute 不支持 lpEnvironment，
             // 非提权路径由 RuntimeResolver.Build 注入环境块，提权路径只能在此以 set 行补齐，
             // 否则 admin:true 的脚本（如 Install-*.ps1）拿不到 SCRIPT_MANAGER_RUNTIME 等目录信息。
             foreach (var setLine in RuntimeResolver.BuildScriptEnvSetLines())

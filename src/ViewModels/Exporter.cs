@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 
-namespace ScriptManager.ViewModels;
+namespace AIScriptManager.ViewModels;
 
 /// <summary>
 /// 导出辅助：将脚本目录（script）整体打包为 script_yyyyMMddHHmmss.zip。

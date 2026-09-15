@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace ScriptManager.Cache;
+namespace AIScriptManager.Cache;
 
 /// <summary>
 /// 日志面板显示选项缓存：所有脚本共享同一套开关（显示行号 / 显示时间）。

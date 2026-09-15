@@ -1,8 +1,8 @@
-﻿# build.ps1 - 一键发布 knife-script-manager
+﻿# build.ps1 - 一键发布 knife-ai-script-manager
 # 产物进入 dist/，包含两个版本（目录结构一致，区别仅在于是否内置 .NET）：
-#   dist/ScriptManagerPortable/  自包含单文件 exe（内置 .NET 运行时，开箱即用）
-#   dist/ScriptManager/          依赖框架版（不内置 .NET，需用户机器已安装 .NET 运行时）
-# 两个目录均含：ScriptManager.exe + script\（脚本目录）+ lib\（第三方依赖，如 jar）+ config\（用户配置文件），与 exe 同级，用户可编辑。
+#   dist/AIScriptManagerPortable/  自包含单文件 exe（内置 .NET 运行时，开箱即用）
+#   dist/AIScriptManager/          依赖框架版（不内置 .NET，需用户机器已安装 .NET 运行时）
+# 两个目录均含：AIScriptManager.exe + script\（脚本目录）+ lib\（第三方依赖，如 jar）+ config\（用户配置文件），与 exe 同级，用户可编辑。
 # 注：script/ 与 lib/ 复制时会跳过 .gitignore 命中的文件（如本地 IDE 生成的 *.iml / .idea/），确保本地 dist 与干净发布包一致。
 # cache\（缓存）与 log\（日志）不预生成，运行时由程序在 exe 同级自动创建。
 #
@@ -206,9 +206,9 @@ if (-not (Test-Path $srcDir)) {
 
 try {
 # 关闭已打开的 exe，避免文件被占用导致覆盖失败
-$running = Get-Process -Name "ScriptManager" -ErrorAction SilentlyContinue
+$running = Get-Process -Name "AIScriptManager" -ErrorAction SilentlyContinue
 if ($running) {
-    Write-Host "==> 正在关闭已打开的 ScriptManager.exe ..."
+    Write-Host "==> 正在关闭已打开的 AIScriptManager.exe ..."
     $running | Stop-Process -Force
     Start-Sleep -Seconds 1
 }
@@ -292,7 +292,7 @@ function Copy-CleanTree {
 }
 
 # ---- 组装交付目录 ----
-# $outDir: 目标子目录（如 dist/ScriptManagerPortable）
+# $outDir: 目标子目录（如 dist/AIScriptManagerPortable）
 function Assemble-Dist {
     param([string]$outDir, [bool]$selfContained)
 
@@ -304,15 +304,15 @@ function Assemble-Dist {
     }
 
     # 1) 主程序 exe
-    $publishedExe = Join-Path $publishDir "ScriptManager.exe"
+    $publishedExe = Join-Path $publishDir "AIScriptManager.exe"
     if (-not (Test-Path $publishedExe)) {
         Write-Error "未找到发布产物: $publishedExe"
         Write-BuildErrorLog "未找到发布产物: $publishedExe（发布步骤可能未成功完成）"
         exit 1
     }
-    Copy-Item $publishedExe (Join-Path $outDir "ScriptManager.exe") -Force
+    Copy-Item $publishedExe (Join-Path $outDir "AIScriptManager.exe") -Force
     $sizeMB = [math]::Round((Get-Item $publishedExe).Length / 1MB, 1)
-    Write-Host "==> 已复制主程序 -> $(Join-Path $outDir 'ScriptManager.exe') ($sizeMB MB)"
+    Write-Host "==> 已复制主程序 -> $(Join-Path $outDir 'AIScriptManager.exe') ($sizeMB MB)"
 
     # 2) 脚本目录：script/ -> outDir/script/
     $scriptSrc = Join-Path $rootDir "script"
@@ -421,8 +421,8 @@ function Assemble-Dist {
 }
 
 # ---- 按所选版本构建 ----
-$portableDir = Join-Path $distDir "ScriptManagerPortable"
-$simpleDir   = Join-Path $distDir "ScriptManager"
+$portableDir = Join-Path $distDir "AIScriptManagerPortable"
+$simpleDir   = Join-Path $distDir "AIScriptManager"
 
 if ($Edition -eq "Portable" -or $Edition -eq "Both") {
     Write-Host ""
@@ -443,7 +443,7 @@ if ($Edition -eq "Standard" -or $Edition -eq "Both") {
 # 清理根目录可能残留的旧 exe（确保只存在于 dist/）
 $rootExe = Join-Path $rootDir "launcher.exe"
 if (Test-Path $rootExe) { Remove-Item $rootExe -Force }
-$rootExe2 = Join-Path $rootDir "ScriptManager.exe"
+$rootExe2 = Join-Path $rootDir "AIScriptManager.exe"
 if (Test-Path $rootExe2) { Remove-Item $rootExe2 -Force }
 
 Write-Host ""
@@ -454,7 +454,7 @@ if ($Edition -eq "Portable" -or $Edition -eq "Both") {
 if ($Edition -eq "Standard" -or $Edition -eq "Both") {
     Write-Host "    - $simpleDir    （依赖框架，需用户机器安装 .NET 运行时）"
 }
-Write-Host "    目录结构一致：ScriptManager.exe + script\ + lib\ + config\，与 exe 同级，用户可编辑。"
+Write-Host "    目录结构一致：AIScriptManager.exe + script\ + lib\ + config\，与 exe 同级，用户可编辑。"
 Write-Host "    （cache\ 与 log\ 不打包，运行时由程序自动创建；文件夹变色资源 fColors.icl 与模板随构建放入 config\ 并设为 Hidden）"
 
 # 打包成功，清理可能残留的 error.log（若有），避免误导用户以为上次失败
@@ -473,7 +473,7 @@ foreach ($d in @($portableDir, $simpleDir)) {
 # 打包成功后按需自动启动（由 -Launch 控制；Both 时默认启动标准版）
 if ($Launch) {
     $launchDir = if ($Edition -eq "Portable") { $portableDir } else { $simpleDir }
-    $launchExe = Join-Path $launchDir "ScriptManager.exe"
+    $launchExe = Join-Path $launchDir "AIScriptManager.exe"
     Write-Host "==> 正在启动 $launchExe ..."
     Start-Process -FilePath $launchExe
 }

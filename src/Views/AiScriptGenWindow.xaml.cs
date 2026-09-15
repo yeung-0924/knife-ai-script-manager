@@ -1,10 +1,10 @@
 using System.IO;
 using System.Text;
 using System.Windows;
-using ScriptManager.Ai;
-using ScriptManager.ViewModels;
+using AIScriptManager.Ai;
+using AIScriptManager.ViewModels;
 
-namespace ScriptManager.Views;
+namespace AIScriptManager.Views;
 
 /// <summary>
 /// 「AI 脚本编辑器」对话框，双模式：

@@ -1,18 +1,18 @@
-# knife-script-manager
+# knife-ai-script-manager
 
-Windows 双击即用的脚本管理器。读取 exe 同级 `script/index.json` 列出脚本，点击「执行」即可运行，右侧实时显示日志与报错。
+Windows 双击即用的AI脚本管理器。读取 exe 同级 `script/index.json` 列出脚本，点击「执行」即可运行，右侧实时显示日志与报错。
 
 ## 目录结构
 ```
-knife-script-manager/
+knife-ai-script-manager/
   script/                 # 脚本与配置（与 exe 同级分发，用户可直接编辑）
     index.json            # 脚本列表配置（数组）
     *.cmd / *.bat / *.ps1 / *.go / *.rs / *.js / *.py / *.java / *.sh  # 你的脚本（按语言扩展名）
   src/                    # C# 源代码（重建 exe 用）
   publish/                # 发布缓存（自动生成，可删）
   dist/                   # 交付目录（自动生成）
-    ScriptManagerPortable/   # 便携版：自包含单文件 exe（内置 .NET，开箱即用）
-    ScriptManager/          # 标准版：依赖框架（不内置 .NET，需用户机器装 .NET 运行时）
+    AIScriptManagerPortable/   # 便携版：自包含单文件 exe（内置 .NET，开箱即用）
+    AIScriptManager/          # 标准版：依赖框架（不内置 .NET，需用户机器装 .NET 运行时）
   .tmp/                   # 临时文件（自动生成，忽略）
   build.ps1               # 一键构建脚本（生成 dist/）
 ```
@@ -38,7 +38,7 @@ knife-script-manager/
 
 exe 启动后只加载**一处**脚本：默认是 exe 同级的 `script/` 目录（含 `index.json` 与全部脚本）。目录树只渲染这一个来源，按 `group` 分组展示，不再区分"内置/自定义"。
 
-- `script/` 与 `ScriptManager.exe` 同级分发，**不嵌入 exe**（改脚本无需重新构建）。
+- `script/` 与 `AIScriptManager.exe` 同级分发，**不嵌入 exe**（改脚本无需重新构建）。
 - 增删脚本、改 `.ps1`、改 `index.json` 均即时生效（重启 exe 即可）。
 - 若 `index.json` 缺失或解析为空，目录树不渲染，不会崩溃。
 - 想加载其它位置的脚本：点工具栏「打开」按钮，直接选择任意目录下的 `index.json` 文件；该选择会自动写入 `config.ini` 的 `script_index_file`，重启后仍自动加载（与「设置▸编辑配置▸脚本索引文件」写同一键、效果一致）。
@@ -68,14 +68,14 @@ powershell -ExecutionPolicy Bypass -NoProfile -File .\build.ps1 -Edition Standar
 powershell -ExecutionPolicy Bypass -NoProfile -File .\build.ps1
 ```
 
-脚本会自动把 `ScriptManager.exe` 放入 `dist/ScriptManagerPortable/`（或 `dist/ScriptManager/`），并把 `script/` 与 `config/` 整体复制到对应目录（与 exe 同级，用户可编辑）。
+脚本会自动把 `AIScriptManager.exe` 放入 `dist/AIScriptManagerPortable/`（或 `dist/AIScriptManager/`），并把 `script/` 与 `config/` 整体复制到对应目录（与 exe 同级，用户可编辑）。
 
 换机器时（SDK 路径不同）可加 `-DotNet "新路径\dotnet.exe"`；指定架构用 `-Runtime win-x64`（或 `win-arm64`）：
 ```
 .\build.ps1 -Edition Both -DotNet "新路径\dotnet.exe" -Runtime win-x64
 ```
 
-**交付**：两个目录结构一致，均为 `ScriptManager.exe` + `script\`（脚本与 `index.json`）+ `config\`（用户配置）。把对应目录整体发给用户，**双击 `ScriptManager.exe` 即用**：
+**交付**：两个目录结构一致，均为 `AIScriptManager.exe` + `script\`（脚本与 `index.json`）+ `config\`（用户配置）。把对应目录整体发给用户，**双击 `AIScriptManager.exe` 即用**：
 - 选 **便携版**：目标机器无需安装 .NET，文件较大。
 - 选 **标准版**：目标机器需先装 .NET 10 运行时，文件较小。
 
@@ -83,13 +83,13 @@ powershell -ExecutionPolicy Bypass -NoProfile -File .\build.ps1
 ```
 dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ..\publish
 ```
-标准版把 `--self-contained true` 改为 `--self-contained false` 即可。发布成功后，把 `publish\ScriptManager.exe` 复制到 `dist\ScriptManagerPortable\`（或 `dist\ScriptManager\`），并把 `script/` 与 `config/` 复制过去。
+标准版把 `--self-contained true` 改为 `--self-contained false` 即可。发布成功后，把 `publish\AIScriptManager.exe` 复制到 `dist\AIScriptManagerPortable\`（或 `dist\AIScriptManager\`），并把 `script/` 与 `config/` 复制过去。
 
 > 发布是耗时操作，前台可能被环境拦截。可改为异步执行：
 > ```
 > cmd /c start "" /min cmd /c "dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ..\publish > .tmp/_pub.log 2>&1"
 > ```
-> 然后看 `.tmp/_pub.log` 是否出现 `ScriptManager -> ...\publish\`，完成后再把产物放入 `dist/`。
+> 然后看 `.tmp/_pub.log` 是否出现 `AIScriptManager -> ...\publish\`，完成后再把产物放入 `dist/`。
 
 ## 参数说明
 | 参数 | 作用 |

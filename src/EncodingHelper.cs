@@ -1,7 +1,7 @@
 using System.IO;
 using System.Text;
 
-namespace ScriptManager;
+namespace AIScriptManager;
 
 /// <summary>
 /// 文件编码探测辅助。

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace ScriptManager.Cache;
+namespace AIScriptManager.Cache;
 
 /// <summary>
 /// 目录树展开状态缓存：记住哪些容器节点（来源根/分组）是展开的。

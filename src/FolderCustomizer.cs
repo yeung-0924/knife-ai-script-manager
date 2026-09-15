@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 
-namespace ScriptManager;
+namespace AIScriptManager;
 
 /// <summary>
 /// 文件夹变色（desktop.ini + fColors.icl）。

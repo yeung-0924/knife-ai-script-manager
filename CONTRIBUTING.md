@@ -1,6 +1,6 @@
 # 参与贡献（Contributing）
 
-感谢你关注 knife-script-manager！这是一个个人维护的便携脚本管理器，欢迎提 Issue 与 PR。
+感谢你关注 knife-ai-script-manager！这是一个个人维护的便携AI脚本管理器，欢迎提 Issue 与 PR。
 
 ## 提 Issue
 

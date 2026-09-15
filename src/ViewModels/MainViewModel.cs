@@ -12,10 +12,10 @@ using System.Windows.Threading;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Highlighting;
 using Microsoft.Win32;
-using ScriptManager;
-using ScriptManager.Cache;
+using AIScriptManager;
+using AIScriptManager.Cache;
 
-namespace ScriptManager.ViewModels;
+namespace AIScriptManager.ViewModels;
 
 /// <summary>
 /// 主界面视图模型（MVVM）。保留原 Form1 的全部业务行为：

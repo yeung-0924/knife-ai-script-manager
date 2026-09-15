@@ -1,7 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 
-namespace ScriptManager.Views;
+namespace AIScriptManager.Views;
 
 /// <summary>
 /// 通用单行输入对话框（新建目录 / 重命名等）：标题与提示由调用方传入，Value 取去空格后的输入值。

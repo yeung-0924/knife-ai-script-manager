@@ -1,4 +1,4 @@
-namespace ScriptManager;
+namespace AIScriptManager;
 
 /// <summary>
 /// 对应 script/index.json 数组中的单个节点。

@@ -5,11 +5,11 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using Microsoft.Win32;
-using ScriptManager.Cache;
-using ScriptManager.Utils;
-using ScriptManager.ViewModels;
+using AIScriptManager.Cache;
+using AIScriptManager.Utils;
+using AIScriptManager.ViewModels;
 
-namespace ScriptManager.Views;
+namespace AIScriptManager.Views;
 
 /// <summary>
 /// 配置编辑弹窗：结构化编辑 config.ini 的 [script] 节关键项。

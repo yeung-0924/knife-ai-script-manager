@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 
-namespace ScriptManager.Utils
+namespace AIScriptManager.Utils
 {
     /// <summary>
     /// 零依赖的目录选择对话框（WPF 没有原生 FolderBrowserDialog）。

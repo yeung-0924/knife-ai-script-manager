@@ -3,7 +3,7 @@ using System.IO;
 using System.Reflection;
 using System.Windows.Media.Imaging;
 
-namespace ScriptManager.ViewModels;
+namespace AIScriptManager.ViewModels;
 
 /// <summary>
 /// 树节点模型：支持两层结构——分组（Group，含嵌套分组）→ 脚本项（Script）。

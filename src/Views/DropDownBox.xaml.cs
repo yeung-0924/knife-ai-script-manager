@@ -5,7 +5,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Runtime.InteropServices;
 
-namespace ScriptManager.Views;
+namespace AIScriptManager.Views;
 
 /// <summary>
 /// 外观等同普通输入框（TextBox），但点击时弹出下拉列表供选择；同时仍允许自由输入。

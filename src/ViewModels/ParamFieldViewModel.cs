@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Input;
 
-namespace ScriptManager.ViewModels;
+namespace AIScriptManager.ViewModels;
 
 /// <summary>
 /// 单个参数输入控件模型：根据 ScriptParam 的 Options 决定渲染为 TextBox（无选项）或 ComboBox（有选项）。

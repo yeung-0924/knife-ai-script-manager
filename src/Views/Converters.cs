@@ -4,7 +4,7 @@ using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
 
-namespace ScriptManager;
+namespace AIScriptManager;
 
 /// <summary>
 /// null → Collapsed，否则 Visible。用于图标按需显示。

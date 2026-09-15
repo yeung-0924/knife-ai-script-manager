@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Windows.Media;
 
-namespace ScriptManager.ViewModels;
+namespace AIScriptManager.ViewModels;
 
 /// <summary>
 /// 单段已解析文本（可能带 ANSI 前景色）。<see cref="Foreground"/> 为 null 表示「用所属日志级别的默认色」。

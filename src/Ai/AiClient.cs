@@ -3,7 +3,7 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 
-namespace ScriptManager.Ai;
+namespace AIScriptManager.Ai;
 
 /// <summary>
 /// OpenAI 兼容的聊天补全客户端（通用于 OpenAI / DeepSeek / 通义 / 本地 Ollama 等，只要提供 base_url + key）。

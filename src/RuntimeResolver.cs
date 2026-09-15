@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 
-namespace ScriptManager;
+namespace AIScriptManager;
 
 /// <summary>
 /// 按 lang 解析出对应的 <see cref="ProcessStartInfo"/>：FileName = 用户配置的 runtime 路径，Arguments 按语言模板拼装。
@@ -61,7 +61,7 @@ public static class RuntimeResolver
     }
 
     /// <summary>
-    /// 脚本可见的环境变量（脚本管理器提供的目录信息），是进程注入与提权 set 行的<b>唯一来源</b>：
+    /// 脚本可见的环境变量（AI脚本管理器提供的目录信息），是进程注入与提权 set 行的<b>唯一来源</b>：
     /// <list type="bullet">
     /// <item>SCRIPT_MANAGER_LIB：第三方依赖目录（配置项 lib_dir，默认 exe 同级 lib），
     /// 例如 Java 脚本：<c>java -cp "%SCRIPT_MANAGER_LIB%\xxx.jar" Script.java</c></item>
