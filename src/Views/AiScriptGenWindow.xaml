@@ -19,9 +19,11 @@
             <!-- 脚本功能描述：语言与参数都在描述里一并说明，无需单独选择（编辑模式下由代码-behind 换成「修改要求」文案） -->
             <TextBlock x:Name="DescLabel" Text="{x:Static local:Strings.AiGenDescLabel}" Margin="0,0,0,4" />
             <Grid>
+                <!-- Padding 6,7：文本真实落点 = Padding + TextBoxView 内缩(左3/上1) = (9,8)，
+                     与占位符 Margin(9,8,9,8) 精确对齐（占位符消失→正文显示，位置不跳动） -->
                 <TextBox x:Name="DescBox" Height="120" TextWrapping="Wrap" AcceptsReturn="True"
                          VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
-                         Padding="6,5" Style="{StaticResource BaseTextBox}" />
+                         Padding="6,7" Style="{StaticResource BaseTextBox}" />
                 <TextBlock x:Name="DescPlaceholder" Text="{x:Static local:Strings.AiGenDescPlaceholder}"
                            Foreground="{DynamicResource BrushPlaceholder}"
                            Margin="9,8,9,8" TextWrapping="Wrap" IsHitTestVisible="False"

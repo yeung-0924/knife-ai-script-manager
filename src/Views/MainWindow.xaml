@@ -302,21 +302,23 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </Border.Style>
+                                            <!-- 左内边距 5：文本真实落点 = 5 + TextBoxView 内缩 3 = 8，
+                                                 与 RuntimePlaceholder 的 Margin(8,0,0,0) 对齐 -->
                                             <TextBox x:Name="ExePathBox"
                                                      Text="{Binding SelectedExePath, Mode=OneWay}"
                                                      IsReadOnly="True" Cursor="Hand"
                                                      ToolTip="{x:Static local:Strings.ExePathBoxToolTip}"
                                                      PreviewMouseDown="ExePathBox_PreviewMouseDown"
                                                      VerticalContentAlignment="Center"
-                                                     BorderThickness="0" Background="Transparent" Padding="2,0">
+                                                     BorderThickness="0" Background="Transparent" Padding="5,0">
                                                 <TextBox.Style>
                                                     <Style TargetType="TextBox" BasedOn="{StaticResource BaseTextBox}">
                                                         <Setter Property="Template">
                                                             <Setter.Value>
                                                                 <ControlTemplate TargetType="TextBox">
-                                                                    <!-- 背景透出外层 Border 的颜色：IsEnabled 禁用时显示外层 BrushDisabledBg -->
+                                                                    <!-- 背景透出外层 Border 的颜色：IsEnabled 禁用时显示外层 BrushDisabledBg。
+                                                                         Padding 交给 TextBoxBase 内建机制，模板不重复绑定（否则双重叠加）。 -->
                                                                     <ScrollViewer x:Name="PART_ContentHost"
-                                                                                  Margin="{TemplateBinding Padding}"
                                                                                   VerticalAlignment="Center"
                                                                                   Focusable="False"
                                                                                   Background="Transparent" />
