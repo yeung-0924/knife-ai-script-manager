@@ -22,6 +22,9 @@
         </Grid>
 
         <StackPanel>
+            <!-- 分区一「工作路径」：脚本索引 / 各目录选择 + 默认超时（均为路径与工作目录相关配置） -->
+            <TextBlock Text="{x:Static local:Strings.WorkPathSection}"
+                       FontWeight="Bold" Margin="0,0,0,8" />
             <ItemsControl x:Name="Rows">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
@@ -79,7 +82,7 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <!-- 默认执行超时(秒)：紧跟在「日志目录」下方，是配置编辑器内唯一允许手输的字段；
+            <!-- 默认执行超时(秒)：紧跟在「日志目录」下方，允许手输的数字字段；
                  留空即不限制，占位符显示「0（不限制）」，× 清除回落默认。
                  外框为独立方框（四边/四角均圆角），聚焦时整框变蓝。 -->
             <Grid x:Name="TimeoutGrid">
@@ -118,8 +121,8 @@
                 </Border>
             </Grid>
 
-            <!-- AI 生成脚本配置：[ai] 节 api_key / base_url / model。
-                 与上方「目录/文件选择」不同，这三项是纯文本配置，用可手输行（带 × 清空）；
+            <!-- AI 生成脚本配置：[ai] 节 api_key / base_url / model / max_rounds。
+                 与上方「工作路径」分区不同，这些是纯文本配置，用可手输行（带 × 清空）；
                  API 密钥用 PasswordBox 默认隐藏，勾选「显示」切换为明文 TextBox，避免泄露。 -->
             <TextBlock Text="{x:Static local:Strings.AiConfigSection}"
                        FontWeight="Bold" Margin="0,16,0,8" />
@@ -190,6 +193,44 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+
+            <!-- 最大对话轮次：一次编辑会话中与模型对话的轮数上限（含首轮生成），留空 = 默认 1。
+                 数字手输（拦截非数字），× 清除回落默认；样式与「默认执行超时」一致。 -->
+            <Grid x:Name="AiMaxRoundsGrid">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="104" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{x:Static local:Strings.AiMaxRoundsLabel}"
+                           VerticalAlignment="Center" Margin="0,0,6,0" />
+                <Border Grid.Column="1" BorderThickness="1" CornerRadius="4"
+                        Height="24" VerticalAlignment="Center" SnapsToDevicePixels="True"
+                        Background="{DynamicResource BrushPanelBg}">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+                            <Style.Triggers>
+                                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                    <Setter Property="BorderBrush" Value="{DynamicResource BrushPrimary}" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <Grid>
+                        <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource ClearableTextBoxInline}"
+                                 PreviewTextInput="Timeout_PreviewTextInput" />
+                        <TextBlock Text="{Binding Placeholder}"
+                                   Foreground="{DynamicResource BrushPlaceholder}" Margin="4,0,0,0"
+                                   VerticalAlignment="Center" IsHitTestVisible="False"
+                                   Visibility="{Binding Value, Converter={x:Static local:StringEmptyToVisibilityConverter.Instance}}" />
+                        <Button Style="{StaticResource ClearButton}"
+                                Click="AiMaxRoundsClear_Click"
+                                ToolTip="{x:Static local:Strings.ClearButtonToolTip}"
+                                Visibility="{Binding Value, Converter={x:Static local:StringNotEmptyToVisibilityConverter.Instance}}" />
+                    </Grid>
+                </Border>
+            </Grid>
         </StackPanel>
     </DockPanel>
 </Window>

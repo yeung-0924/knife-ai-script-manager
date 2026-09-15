@@ -22,17 +22,19 @@ namespace ScriptManager.Views;
 /// </list>
 /// 目录/文件项均为只读选择框（浏览按钮），不可手输；未自定义时留空并显示默认相对路径占位符，
 /// 点击 × 或「默认值」可清除、回落到内置相对默认（script\index.json / lib / runtime / cache / log）。
-/// 「默认执行超时(秒)」是弹窗内唯一允许手输的数字项（空白 = 不限制）。
+/// 「默认执行超时(秒)」与 AI「最大对话轮次」是弹窗内允许手输的数字项（前者空白 = 不限制，后者空白 = 默认 1）。
 /// </summary>
 public partial class ConfigEditorWindow : Window
 {
     private readonly List<ConfigRow> _rows = new();
-    // 默认执行超时(秒)：唯一可手输字段，空白 = 不限制（0）。
-    private readonly TimeoutRow _timeout = new();
-    // AI 生成脚本配置（[ai] 节）：base_url / model 用可手输文本行；api_key 单独用 PasswordBox 处理。
+    // 默认执行超时(秒)：数字手输字段，空白 = 不限制（0）。
+    private readonly NumericRow _timeout = new();
+    // AI 生成脚本配置（[ai] 节）：base_url / model 用可手输文本行；api_key 单独用 PasswordBox 处理；
+    // max_rounds（最大连续对话轮次）为数字手输，空白 = 默认 1。
     private readonly List<AiTextRow> _aiRows = new();
     private readonly AiTextRow _aiBaseUrlRow = new();
     private readonly AiTextRow _aiModelRow = new();
+    private readonly NumericRow _aiMaxRounds = new();
     private string _aiApiKey = "";
 
     /// <summary>宿主主窗口的视图模型，保存后用于触发左侧目录树按新脚本索引重建；可为 null（防御性）。</summary>
@@ -68,6 +70,13 @@ public partial class ConfigEditorWindow : Window
         _aiRows.Add(_aiBaseUrlRow);
         _aiRows.Add(_aiModelRow);
         AiRows.ItemsSource = _aiRows;
+
+        // 最大连续对话轮次（[ai] max_rounds）：留空 = 默认 1（仅首轮生成、无追问），
+        // 非法值由 AppConfig.AiMaxRounds 统一按 1 处理；显示原始输入，保存时做纯数字清洗。
+        var mrRaw = AppConfig.GetRawValue("ai", "max_rounds")?.Trim();
+        _aiMaxRounds.Placeholder = Strings.AiMaxRoundsPlaceholder;
+        _aiMaxRounds.Value = mrRaw ?? "";
+        AiMaxRoundsGrid.DataContext = _aiMaxRounds;
 
         var ak = AppConfig.GetRawValue("ai", "api_key") ?? "";
         _aiApiKey = ak;
@@ -155,11 +164,13 @@ public partial class ConfigEditorWindow : Window
             var oldIndex = AppConfig.ScriptIndexJsonPath;
             foreach (var row in _rows)
                 AppConfig.SetRawValue("script", row.Key, row.Value.Trim());
-            AppConfig.SetRawValue("script", "default_timeout", SanitizeTimeout(_timeout.Value));
-            // AI 生成脚本配置（[ai] 节）：api_key 留空即移除该键（等同未配置）；base_url/model 同上。
+            AppConfig.SetRawValue("script", "default_timeout", SanitizeDigits(_timeout.Value));
+            // AI 生成脚本配置（[ai] 节）：api_key 留空即移除该键（等同未配置）；base_url/model 同上；
+            // max_rounds 留空即回落默认 1（AppConfig 对非数字 / <1 的值也按 1 处理）。
             AppConfig.SetRawValue("ai", "api_key", _aiApiKey.Trim());
             AppConfig.SetRawValue("ai", "base_url", _aiBaseUrlRow.Value.Trim());
             AppConfig.SetRawValue("ai", "model", _aiModelRow.Value.Trim());
+            AppConfig.SetRawValue("ai", "max_rounds", SanitizeDigits(_aiMaxRounds.Value));
             AppConfig.Reload();
             // cache_dir 迁移 + 标准目录图标刷新：使目录类配置改动保存即生效，无需重启
             ApplyLiveEffects();
@@ -198,6 +209,9 @@ public partial class ConfigEditorWindow : Window
     /// <summary>清除超时字段：置空即回落到「不限制」（0）。</summary>
     private void TimeoutClear_Click(object sender, RoutedEventArgs e) => _timeout.Value = "";
 
+    /// <summary>清除最大对话轮次：置空即回落到默认 1（仅首轮生成、无追问）。</summary>
+    private void AiMaxRoundsClear_Click(object sender, RoutedEventArgs e) => _aiMaxRounds.Value = "";
+
     #region AI 生成脚本配置（[ai] 节）
 
     /// <summary>API 密钥「显示」复选框：切换 PasswordBox / TextBox，并同步当前明文到目标控件。</summary>
@@ -226,15 +240,15 @@ public partial class ConfigEditorWindow : Window
 
     #endregion
 
-    /// <summary>超时输入框仅允许数字，拦截其它字符的输入。</summary>
+    /// <summary>超时 / 最大对话轮次等数字输入框仅允许数字，拦截其它字符的输入。</summary>
     private void Timeout_PreviewTextInput(object sender, TextCompositionEventArgs e)
     {
         foreach (var c in e.Text)
             if (!char.IsDigit(c)) { e.Handled = true; return; }
     }
 
-    /// <summary>取出超时文本中的纯数字部分；空或非数字则返回空（AppConfig 解析为空=不限制）。</summary>
-    private static string SanitizeTimeout(string value)
+    /// <summary>取出数字文本中的纯数字部分；空或非数字则返回空（AppConfig 解析为空 = 各自的默认值）。</summary>
+    private static string SanitizeDigits(string value)
     {
         value = (value ?? "").Trim();
         if (value.Length == 0) return "";
@@ -274,8 +288,8 @@ public class ConfigRow : INotifyPropertyChanged
             : new System.Uri("pack://application:,,,/assets/images/button/folder-open.svg", System.UriKind.Absolute);
 }
 
-/// <summary>默认执行超时(秒) 绑定模型：配置编辑器内唯一允许手输的字段；空白 = 不限制（0）。</summary>
-public class TimeoutRow : INotifyPropertyChanged
+/// <summary>数字手输行绑定模型（默认执行超时 / 最大对话轮次共用）：带占位符与 × 清空，空白 = 各自默认值。</summary>
+public class NumericRow : INotifyPropertyChanged
 {
     /// <summary>未填写时显示的占位提示（如「0（不限制）」）。</summary>
     public string Placeholder { get; set; } = "";

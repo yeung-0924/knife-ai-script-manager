@@ -17,6 +17,8 @@ namespace ScriptManager.Views;
 /// 占位符切换为追问提示，再次「生成」即带着历史上下文迭代改写，对话历史持久化到
 /// cache/{脚本id}/（每次编辑会话一个文件，删除脚本不清缓存）。
 /// 「接受并写入」即结束本次编辑会话：对话状态重置，下次生成重新发起（编辑模式直接关闭窗口）。
+/// 一次编辑会话的连续对话轮数受配置 [ai] max_rounds 限制（默认 1 = 仅首轮生成、无追问），
+/// 达到上限后「生成」禁用，只能接受当前结果或关闭窗口重新发起。
 /// 未配置 AI API 时禁用生成并提示先去「设置 ▸ 编辑配置」。
 /// </summary>
 public partial class AiScriptGenWindow : Window
@@ -41,6 +43,8 @@ public partial class AiScriptGenWindow : Window
     private AiConversation? _conversation;
     // 本会话内脚本的稳定 id：首轮分配 / 编辑模式取种子，追问轮沿用（文件名、索引条目、缓存目录都认它）
     private string? _scriptId;
+    // 本会话已完成的对话轮数（含首轮生成），用于对照 [ai] max_rounds 上限；「接受并写入」后归零
+    private int _roundsUsed;
 
     private bool IsEditMode => EditSeed != null;
 
@@ -76,6 +80,15 @@ public partial class AiScriptGenWindow : Window
         if (string.IsNullOrWhiteSpace(desc))
         {
             StatusText.Text = Strings.AiStatusNeedDesc;
+            return;
+        }
+
+        // 轮次上限（含首轮生成）：达到 [ai] max_rounds 后禁止继续生成（防御性，正常路径已在下方禁用按钮）
+        var maxRounds = AppConfig.AiMaxRounds;
+        if (_roundsUsed >= maxRounds)
+        {
+            StatusText.Text = string.Format(Strings.AiStatusRoundLimit, maxRounds);
+            BtnGenerate.IsEnabled = false;
             return;
         }
 
@@ -122,7 +135,11 @@ public partial class AiScriptGenWindow : Window
             // 完成：恢复预览区标题，显示解析后的脚本正文
             PreviewScriptLabel.Text = Strings.AiGenPreviewScript;
             ScriptPreview.Text = _result.Content;
-            StatusText.Text = Strings.AiStatusGenerated;
+            _roundsUsed++;
+            // 已达轮次上限：状态栏提示收尾，按钮在 finally 中保持禁用；否则正常提示检查预览
+            StatusText.Text = _roundsUsed >= AppConfig.AiMaxRounds
+                ? string.Format(Strings.AiStatusRoundLimit, AppConfig.AiMaxRounds)
+                : Strings.AiStatusGenerated;
             BtnAccept.IsEnabled = true;
 
             // 多轮对话：清空描述框等待下一轮修改要求（占位符切换为追问提示）
@@ -138,7 +155,8 @@ public partial class AiScriptGenWindow : Window
         }
         finally
         {
-            BtnGenerate.IsEnabled = true;
+            // 生成完成后，仅当对话轮数未达上限时才允许再次生成（失败不计入轮数）
+            BtnGenerate.IsEnabled = _roundsUsed < AppConfig.AiMaxRounds;
         }
     }
 
@@ -158,6 +176,7 @@ public partial class AiScriptGenWindow : Window
                 _conversation = null;
                 _scriptId = null;
                 _result = null;
+                _roundsUsed = 0;
                 ScriptPreview.Text = "";
                 DescBox.Clear();
                 DescPlaceholder.Text = Strings.AiGenDescPlaceholder;
@@ -177,11 +196,14 @@ public partial class AiScriptGenWindow : Window
             _conversation = null;
             _scriptId = null;
             _result = null;
+            _roundsUsed = 0;
             ScriptPreview.Text = "";
             DescBox.Clear();
             DescPlaceholder.Text = Strings.AiGenDescPlaceholder;
             PreviewScriptLabel.Text = Strings.AiGenPreviewScript;
             BtnAccept.IsEnabled = false;
+            // 新会话轮次从零起算，重新启用生成（可能刚因达到轮次上限被禁用）
+            BtnGenerate.IsEnabled = AppConfig.AiEnabled;
 
             // 写入后刷新左侧目录树，使新脚本立即可见
             OwnerViewModel?.ReloadTree();
