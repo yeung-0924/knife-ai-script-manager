@@ -23,6 +23,9 @@ public static class AiClient
     public static async Task<string> ChatAsync(string systemPrompt, string userPrompt, bool jsonMode)
     {
         var baseUrl = AppConfig.AiBaseUrl.Trim().TrimEnd('/');
+        // 容错：用户若把完整端点粘贴进来（…/v1/chat/completions），自动剥离后缀，避免拼出重复路径
+        if (baseUrl.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase))
+            baseUrl = baseUrl[..^"/chat/completions".Length].TrimEnd('/');
         var url = baseUrl + "/chat/completions";
 
         var messages = new List<Dictionary<string, string>>

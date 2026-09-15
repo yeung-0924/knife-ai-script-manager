@@ -139,11 +139,11 @@
                     <Grid>
                         <PasswordBox x:Name="AiApiKeyBox" Height="24" VerticalAlignment="Center"
                                      PasswordChanged="AiApiKeyBox_PasswordChanged"
-                                     Visibility="{Binding IsChecked, ElementName=AiApiKeyReveal, Converter={x:Static local:BooleanToVisibilityConverter.Instance}}" />
+                                     Visibility="{Binding IsChecked, ElementName=AiApiKeyReveal, Converter={x:Static local:InverseBoolToVisibilityConverter.Instance}}" />
                         <TextBox x:Name="AiApiKeyTextBox" Height="24" VerticalAlignment="Center"
                                  VerticalContentAlignment="Center"
                                  TextChanged="AiApiKeyTextBox_TextChanged"
-                                 Visibility="{Binding IsChecked, ElementName=AiApiKeyReveal, Converter={x:Static local:InverseBoolToVisibilityConverter.Instance}}" />
+                                 Visibility="{Binding IsChecked, ElementName=AiApiKeyReveal, Converter={x:Static local:BooleanToVisibilityConverter.Instance}}" />
                     </Grid>
                 </DockPanel>
             </Grid>

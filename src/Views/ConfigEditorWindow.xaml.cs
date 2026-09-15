@@ -209,17 +209,13 @@ public partial class ConfigEditorWindow : Window
             AiApiKeyBox.Password = AiApiKeyTextBox.Text;
     }
 
-    /// <summary>隐藏态下（PasswordBox）更新：仅当处于隐藏态时记录明文。</summary>
+    /// <summary>隐藏态（PasswordBox）输入：无条件记录明文（显示态下它被隐藏、只在切换时被同步赋同值，无副作用）。</summary>
     private void AiApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
-    {
-        if (AiApiKeyReveal.IsChecked != true) _aiApiKey = AiApiKeyBox.Password;
-    }
+        => _aiApiKey = AiApiKeyBox.Password;
 
-    /// <summary>显示态下（TextBox）更新：仅当处于显示态时记录明文。</summary>
+    /// <summary>显示态（TextBox）输入：无条件记录明文（隐藏态下同理，仅在切换时被同步赋同值）。</summary>
     private void AiApiKeyTextBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        if (AiApiKeyReveal.IsChecked == true) _aiApiKey = AiApiKeyTextBox.Text;
-    }
+        => _aiApiKey = AiApiKeyTextBox.Text;
 
     /// <summary>AI 文本行（base_url / model）的 × 清空：置空即回落到占位符默认值。</summary>
     private void AiTextClear_Click(object sender, RoutedEventArgs e)

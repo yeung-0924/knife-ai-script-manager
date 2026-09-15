@@ -74,7 +74,7 @@ public static class Strings
     public const string AiBaseUrlLabel = "API 地址";
     public const string AiModelLabel = "模型";
     public const string AiApiKeyPlaceholder = "sk-...（留空即不使用 AI）";
-    public const string AiBaseUrlPlaceholder = "https://api.openai.com/v1";
+    public const string AiBaseUrlPlaceholder = "https://api.openai.com/v1 或 https://openrouter.ai/api/v1（填到 /v1 即可）";
     public const string AiModelPlaceholder = "gpt-4o-mini";
     #endregion
 
