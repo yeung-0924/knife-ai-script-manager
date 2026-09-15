@@ -16,7 +16,7 @@ ScriptManager 是一个 Windows 脚本管理器：读取 `script/index.json` 列
 
 ScriptManager **只**加载 `script/index.json`（嵌套数组，用 `children` 表达目录层级）里登记过的脚本。新增脚本必须两步：
 
-1. 把脚本文件放到 `script/` 下合适子目录（命名见第三节）。
+1. 把脚本文件放到 `script/` 下合适子目录（文件名由程序按 UUID 托管，无需按语言命名，详见第三节）。
 2. 在 `index.json` 里把它作为「脚本节点」加进目标目录节点的 `children`。
 
 ### 脚本节点字段
@@ -24,7 +24,7 @@ ScriptManager **只**加载 `script/index.json`（嵌套数组，用 `children` 
 | 字段 | 必填 | 说明 |
 |---|---|---|
 | `name` | 是 | 界面显示名 |
-| `path` | 是 | 相对 `script/` 根目录的路径，如 `./hyper/Set-StaticIP.ps1`（支持 `./` 前缀） |
+| `path` | 是 | 相对 `script/` 根目录的路径，如 `./hyper/<id>`（`<id>` 为 UUID、无扩展名、程序托管；支持 `./` 前缀） |
 | `lang` | 是 | 语言标识，决定用哪个运行时：`powershell` / `pwsh` / `cmd` / `bash` / `node` / `python` / `java` / `go` / `rust` |
 | `admin` | 否 | `true` 时以管理员身份运行 |
 | `hide` | 否 | `true` 时不在界面显示 |
@@ -35,7 +35,7 @@ ScriptManager **只**加载 `script/index.json`（嵌套数组，用 `children` 
 ```json
 {
   "name": "我的脚本",
-  "path": "./my-scripts/Do-Something.ps1",
+  "path": "./my-scripts/<id>",
   "lang": "powershell",
   "admin": false,
   "params": [
@@ -98,19 +98,28 @@ fn main() { println!("Hello, _p{NAME}!"); }
 
 ---
 
-## 三、文件命名约定（按语言）
+## 三、文件命名约定（程序托管，作者无需关心）
 
-| 语言 | 扩展名 | 命名风格 | 备注 |
-|---|---|---|---|
-| PowerShell | `.ps1` | **PascalCase**（动词-名词） | 如 `Get-LogFile.ps1`、`Do-Something.ps1` |
-| PowerShell 7 (pwsh) | `.ps1` | **PascalCase** | 同 PowerShell，`lang` 用 `pwsh` |
-| CMD / Batch | `.bat` / `.cmd` | `snake_case` 或 `kebab-case` | 全小写 |
-| Bash / Shell | `.sh` | `snake_case` | 如 `backup_database.sh` |
-| Node.js | `.js` | `kebab-case` 或 `snake_case` | 避免驼峰 |
-| Python | `.py` | `snake_case` | PEP 8 强制 |
-| Java | `.java` | **PascalCase** | 文件名必须与 `public class` 名完全一致 |
-| Go | `.go` | `snake_case` | 官方强制，严禁驼峰 |
-| Rust | `.rs` | `snake_case` | 官方强制，严禁驼峰 |
+> **存储模型（2026-09-15 起）**：脚本物理文件由程序按条目的 UUID（无扩展名，如 `206adeb4-...-443c7`）平铺在 `script/` 下，解释器完全由 `index.json` 条目的 `lang` 字段决定，与文件名无关。因此：
+> - 作者**无需按语言给文件加扩展名**，也**无需按语言命名文件**；
+> - 新增 / 编辑脚本时，改语言或内容只改 `index.json` 的 `lang` 字段与文件内容，不改文件名；
+> - `path` 固定为 `./<id>`（无扩展名）。
+>
+> 运行期程序会把脚本另存为带正确扩展名的临时文件（如 `se_script_<guid>.java`）再执行，语言识别由 `lang` 保证，与存储文件名无关。
+
+下方的「按语言命名风格」仅作**代码内部命名**参考（如 Java 类名、Go/Rust 标识符风格），不再约束存储文件名。
+
+| 语言 | 代码内命名风格 | 备注 |
+|---|---|---|
+| PowerShell | **PascalCase**（动词-名词） | 如 `Get-LogFile`、`Do-Something` |
+| PowerShell 7 (pwsh) | **PascalCase** | 同 PowerShell，`lang` 用 `pwsh` |
+| CMD / Batch | `snake_case` 或 `kebab-case` | 全小写 |
+| Bash / Shell | `snake_case` | 如 `backup_database` |
+| Node.js | `kebab-case` 或 `snake_case` | 避免驼峰 |
+| Python | `snake_case` | PEP 8 强制 |
+| Java | **PascalCase** | 单文件源码执行（JEP 330）下类名无需与文件名一致 |
+| Go | `snake_case` | 官方强制，严禁驼峰 |
+| Rust | `snake_case` | 官方强制，严禁驼峰 |
 
 **目录命名**：一律小写、单词间用连字符 `-`（单数），如 `color-log/`、`net-tool/`。
 
@@ -260,7 +269,7 @@ Write-Host "接收参数 Name = $Name"
 ```json
 {
   "name": "我的脚本",
-  "path": "./my-scripts/My-Script.ps1",
+  "path": "./my-scripts/<id>",
   "lang": "powershell",
   "params": [ { "name": "NAME", "label": "问候对象", "default": "World", "required": false } ]
 }
@@ -272,7 +281,7 @@ Write-Host "接收参数 Name = $Name"
 
 ## 九、新增脚本步骤（检查清单）
 
-1. 决定语言 → 按第三节命名文件，放到 `script/` 下合适子目录。
+1. 决定语言 → 把脚本文件交给程序托管（文件名按 UUID 无扩展名，无需按语言命名），放到 `script/` 下合适子目录。
 2. 按第二节 / 第四节写好脚本（支持 `_p{参数名}` 占位符；可选加第五节段标题）。
 3. 在对应 `index.json` 的目录节点 `children` 里加脚本节点（`name`/`path`/`lang`/`params`）。
 4. 用户在程序里点「刷新」即可看到新脚本，无需重新构建。
@@ -301,7 +310,7 @@ Write-Host "接收参数 Name = $Name"
 - 一行 `# 更新时间: YYYY-MM-DD HH:MM:SS`（位于文件头部，见第十一节；**从模板生成新脚本时把时间改为当前时刻**）；
 - 必要的语言收参/包结构注释。
 
-**用法**：复制对应模板 → 按第三节重命名 → 改写逻辑 → 在 `index.json` 注册。完整多段范例见 `../demo/hello-world/`。
+**用法**：复制对应模板 → 改写逻辑（文件名由程序托管，无需按语言命名）→ 在 `index.json` 注册（`path` 填 `./<子目录>/<id>`）。完整多段范例见 `../demo/hello-world/`。
 
 ---
 

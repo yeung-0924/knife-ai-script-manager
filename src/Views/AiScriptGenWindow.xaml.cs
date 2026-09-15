@@ -9,10 +9,10 @@ namespace ScriptManager.Views;
 /// <summary>
 /// 「AI 脚本编辑器」对话框，双模式：
 ///  - 创建模式（默认）：在描述框写清脚本功能（可一并说明参数与语言），生成后脚本文件以
-///    「{id}.{ext}」平铺写入 script 目录，索引条目经 <see cref="ScriptIndexStore"/> 按 id 插入
+///    「{id}」无扩展名平铺写入 script 目录（解释器由 index.json 的 lang 决定），索引条目经 <see cref="ScriptIndexStore"/> 按 id 插入
 ///    ParentGroupId 指向的目录节点（null = 根层级）下的唯一 script/index.json；
 ///  - 编辑模式（EditSeed / EditEntryId / EditFilePath 由主窗口装配）：载入现有脚本让 AI 按修改要求改写，
-///    接受后覆盖原脚本文件并按条目 id 更新其索引条目（若语言变更，物理文件扩展名随之改名）。
+///    接受后覆盖原脚本文件并按条目 id 更新其索引条目（改语言只改 JSON 的 lang 字段，无需改文件名）。
 /// 生成过程为流式（模型回复实时刷进脚本预览区）；首轮成功后进入多轮对话——描述框清空、
 /// 占位符切换为追问提示，再次「生成」即带着历史上下文迭代改写，对话历史持久化到
 /// cache/{脚本id}/（每次编辑会话一个文件，删除脚本不清缓存）。
@@ -169,7 +169,7 @@ public partial class AiScriptGenWindow : Window
         {
             if (IsEditMode)
             {
-                // 覆盖原脚本文件（位置不变），并按条目 id 更新索引条目（lang 变更时文件扩展名随 store 内改名）
+                // 覆盖原脚本文件（位置不变，文件名即 id、无扩展名），并按条目 id 更新索引条目（改语言只改 JSON 的 lang 字段）
                 File.WriteAllText(EditFilePath!, _result.Content, new UTF8Encoding(false));
                 ScriptIndexStore.UpdateScriptEntry(EditEntryId!, ScriptGenerator.BuildEntry(_result));
                 StatusText.Text = Strings.AiStatusEditDone;
@@ -188,7 +188,7 @@ public partial class AiScriptGenWindow : Window
                 return;
             }
 
-            // 创建模式：写文件（{id}.{ext} 平铺）+ 按目录 id 插入索引条目
+            // 创建模式：写文件（{id} 无扩展名平铺）+ 按目录 id 插入索引条目
             var entry = ScriptGenerator.BuildEntry(_result);
             var path = ScriptGenerator.WriteScriptFile(_result);
             ScriptIndexStore.AddScriptEntry(ParentGroupId, entry);

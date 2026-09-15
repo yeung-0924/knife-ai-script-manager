@@ -9,8 +9,9 @@ namespace ScriptManager;
 /// 唯一脚本索引（script/index.json）的读写层。索引为单文件，脚本树右键菜单的
 /// 「创建目录 / 创建脚本 / 重命名 / 编辑 / 删除」全部经本类按条目 id（GUID）定位后修改并整体写回。
 /// 允许脚本同级同名，故一律不用名字定位；条目缺 id 时在首次读写时自动补齐（旧索引零迁移成本）。
-/// 物理布局：所有脚本文件以「{id}.{扩展名}」平铺在 script 目录下（与 index.json 同级），
-/// 条目的 path 字段固定为 ./&lt;id&gt;.&lt;ext&gt;；重命名 / 层级移动只改 JSON，不动物理文件。
+/// 物理布局：所有脚本文件以「{id}」无扩展名平铺在 script 目录下（与 index.json 同级），
+/// 解释器完全由索引条目的 lang 字段决定（与文件名无关），故改语言 / 内容只改 JSON 与文件内容、不动文件名；
+/// 条目的 path 字段固定为 ./&lt;id&gt;；重命名 / 层级移动只改 JSON，不动物理文件。
 /// 所有写操作都是「整文件读 → 改 → 整文件写」，UTF-8 无 BOM、缩进 2 空格。
 /// </summary>
 public static class ScriptIndexStore
@@ -22,21 +23,6 @@ public static class ScriptIndexStore
 
     /// <summary>生成新的条目 id（GUID，标准带连字符格式）。</summary>
     public static string NewId() => Guid.NewGuid().ToString("D");
-
-    /// <summary>脚本语言 → 物理文件扩展名（脚本按 {id}.{ext} 平铺命名）；无映射返回 null（沿用原扩展名）。</summary>
-    public static string? FileExtensionForLang(string? lang) => lang?.ToLowerInvariant() switch
-    {
-        ScriptLangs.Python => ".py",
-        ScriptLangs.Node => ".js",
-        ScriptLangs.Cmd => ".cmd",
-        ScriptLangs.PowerShell => ".ps1",
-        ScriptLangs.Pwsh => ".ps1",
-        ScriptLangs.Bash => ".sh",
-        ScriptLangs.Java => ".java",
-        ScriptLangs.Go => ".go",
-        ScriptLangs.Rust => ".rs",
-        _ => null
-    };
 
     /// <summary>
     /// 读取唯一索引根数组，并为缺少 id 的条目自动补 GUID（有补齐则整体写回）。
@@ -146,39 +132,18 @@ public static class ScriptIndexStore
     /// <summary>
     /// 更新脚本条目（编辑模式，按 id 定位）：仅替换 name / lang / params 三个字段，
     /// 其余字段（id、path、hide 等）与 key 顺序原样保留。
-    /// 若 lang 变更，物理文件（{id}.{ext} 平铺命名）的扩展名随之改名，并同步更新条目 path。
+    /// 物理文件无扩展名、仅由 lang 决定解释器，故改语言无需改文件名，本方法不触碰物理文件。
     /// </summary>
     public static void UpdateScriptEntry(string entryId, JsonObject entry)
     {
         var root = LoadRoot();
         var node = FindById(root, entryId)
                    ?? throw new InvalidOperationException("未找到待更新的脚本条目：" + entryId);
-        var oldLang = node["lang"]?.GetValue<string>();
-        var oldPath = node["path"]?.GetValue<string>();
 
         node["name"] = entry["name"]?.GetValue<string>() ?? node["name"]?.GetValue<string>() ?? "";
         if (entry["lang"] is not null) node["lang"] = entry["lang"]!.DeepClone();
         if (entry["params"] is not null) node["params"] = entry["params"]!.DeepClone();
         else node.Remove("params");
-
-        // 语言变更 → 物理文件扩展名跟随（脚本按 {id}.{ext} 平铺，改名文件 + 更新 path）
-        var newLang = node["lang"]?.GetValue<string>();
-        if (!string.Equals(oldLang, newLang, StringComparison.OrdinalIgnoreCase))
-        {
-            var id = node["id"]?.GetValue<string>();
-            var oldExt = Path.GetExtension(oldPath ?? "");
-            var newExt = FileExtensionForLang(newLang) ?? (oldExt.Length > 0 ? oldExt : ".txt");
-            if (!string.IsNullOrWhiteSpace(id) && !string.Equals(oldExt, newExt, StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(oldPath))
-            {
-                var oldFile = Path.GetFullPath(Path.Combine(ConfigLoader.ScriptDir, oldPath));
-                var newRel = "./" + id + newExt;
-                var newFile = Path.GetFullPath(Path.Combine(ConfigLoader.ScriptDir, newRel));
-                if (File.Exists(oldFile))
-                    File.Move(oldFile, newFile, overwrite: true);
-                node["path"] = newRel;
-            }
-        }
 
         Save(root);
     }

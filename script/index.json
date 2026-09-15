@@ -10,7 +10,7 @@
           {
             "id": "e2ef8b6d-9dd3-4e31-b382-ae1f31036f4e",
             "name": "获取系统信息",
-            "path": "./e2ef8b6d-9dd3-4e31-b382-ae1f31036f4e.ps1",
+            "path": "./e2ef8b6d-9dd3-4e31-b382-ae1f31036f4e",
             "lang": "powershell"
           }
         ]
@@ -22,7 +22,7 @@
           {
             "id": "22e501fb-5038-4c8e-8ac1-e94b24a0578a",
             "name": "获取文件编码",
-            "path": "./22e501fb-5038-4c8e-8ac1-e94b24a0578a.ps1",
+            "path": "./22e501fb-5038-4c8e-8ac1-e94b24a0578a",
             "lang": "powershell",
             "params": [
               {
@@ -79,7 +79,7 @@
           {
             "id": "3b5dc274-7cca-409f-8041-04c0c152d3b5",
             "name": "获取进程列表",
-            "path": "./3b5dc274-7cca-409f-8041-04c0c152d3b5.ps1",
+            "path": "./3b5dc274-7cca-409f-8041-04c0c152d3b5",
             "lang": "powershell",
             "params": [
               {
@@ -94,7 +94,7 @@
           {
             "id": "6d56e968-7ca1-48ff-bcac-ea1b46c9ae26",
             "name": "结束进程",
-            "path": "./6d56e968-7ca1-48ff-bcac-ea1b46c9ae26.ps1",
+            "path": "./6d56e968-7ca1-48ff-bcac-ea1b46c9ae26",
             "lang": "powershell",
             "admin": true,
             "params": [
@@ -130,13 +130,13 @@
           {
             "id": "3235f66f-b25f-48da-beac-9564334a619e",
             "name": "获取网卡信息",
-            "path": "./3235f66f-b25f-48da-beac-9564334a619e.ps1",
+            "path": "./3235f66f-b25f-48da-beac-9564334a619e",
             "lang": "powershell"
           },
           {
             "id": "44f48d22-cd42-4c42-95cb-234de6c818d7",
             "name": "网络连通性测试",
-            "path": "./44f48d22-cd42-4c42-95cb-234de6c818d7.bat",
+            "path": "./44f48d22-cd42-4c42-95cb-234de6c818d7",
             "lang": "cmd",
             "params": [
               {
@@ -162,7 +162,7 @@
               {
                 "id": "b4e65be9-d86a-49e9-9706-41beab07a0a7",
                 "name": "更新防火墙策略",
-                "path": "./b4e65be9-d86a-49e9-9706-41beab07a0a7.ps1",
+                "path": "./b4e65be9-d86a-49e9-9706-41beab07a0a7",
                 "lang": "powershell",
                 "admin": true,
                 "params": [
@@ -214,7 +214,7 @@
       {
         "id": "9c65f8e8-92ec-4a78-8026-29d2f2e8dcec",
         "name": "设置固定 IP（宿主机）",
-        "path": "./9c65f8e8-92ec-4a78-8026-29d2f2e8dcec.ps1",
+        "path": "./9c65f8e8-92ec-4a78-8026-29d2f2e8dcec",
         "lang": "powershell",
         "admin": true,
         "params": [
@@ -257,7 +257,7 @@
       {
         "id": "b40119f1-9cb1-40fe-81ed-f61df4b7bea0",
         "name": "SVG 转 ICO",
-        "path": "./b40119f1-9cb1-40fe-81ed-f61df4b7bea0.py",
+        "path": "./b40119f1-9cb1-40fe-81ed-f61df4b7bea0",
         "lang": "python",
         "params": [
           {
@@ -294,7 +294,7 @@
       {
         "id": "26991142-6be4-4779-8aa6-e341b1db81a3",
         "name": "中国行政区划",
-        "path": "./26991142-6be4-4779-8aa6-e341b1db81a3.py",
+        "path": "./26991142-6be4-4779-8aa6-e341b1db81a3",
         "lang": "python",
         "params": [
           {
@@ -350,13 +350,13 @@
       {
         "id": "e2e1fd8c-e44d-4ac2-87fd-5a27413203db",
         "name": "运行时环境检测",
-        "path": "./e2e1fd8c-e44d-4ac2-87fd-5a27413203db.ps1",
+        "path": "./e2e1fd8c-e44d-4ac2-87fd-5a27413203db",
         "lang": "powershell"
       },
       {
         "id": "2f476668-a21a-4312-ab73-a1c89db19197",
         "name": "安装 Powershell7 运行时环境",
-        "path": "./2f476668-a21a-4312-ab73-a1c89db19197.ps1",
+        "path": "./2f476668-a21a-4312-ab73-a1c89db19197",
         "lang": "powershell",
         "admin": true,
         "params": [
@@ -418,7 +418,7 @@
       {
         "id": "ed363a15-7649-4ca3-8bdc-8aeba7516dad",
         "name": "安装 Java 运行时环境",
-        "path": "./ed363a15-7649-4ca3-8bdc-8aeba7516dad.ps1",
+        "path": "./ed363a15-7649-4ca3-8bdc-8aeba7516dad",
         "lang": "powershell",
         "admin": true,
         "params": [
@@ -492,7 +492,7 @@
       {
         "id": "a53d9a9a-f698-45f8-86a1-af185f33588a",
         "name": "安装 Node.js 运行时环境",
-        "path": "./a53d9a9a-f698-45f8-86a1-af185f33588a.ps1",
+        "path": "./a53d9a9a-f698-45f8-86a1-af185f33588a",
         "lang": "powershell",
         "admin": true,
         "params": [
@@ -544,7 +544,7 @@
       {
         "id": "5f775540-3082-47c4-8c9f-6869247f29a5",
         "name": "安装 Python 运行时环境",
-        "path": "./5f775540-3082-47c4-8c9f-6869247f29a5.ps1",
+        "path": "./5f775540-3082-47c4-8c9f-6869247f29a5",
         "lang": "powershell",
         "admin": true,
         "params": [
@@ -615,7 +615,7 @@
       {
         "id": "ba929ff6-3fb1-4257-9b0b-98ab37cbd56a",
         "name": "安装 Go 运行时环境",
-        "path": "./ba929ff6-3fb1-4257-9b0b-98ab37cbd56a.ps1",
+        "path": "./ba929ff6-3fb1-4257-9b0b-98ab37cbd56a",
         "lang": "powershell",
         "admin": true,
         "params": [
@@ -667,7 +667,7 @@
       {
         "id": "25b2612c-4178-4978-a7e6-f114c978f74a",
         "name": "安装 Rust 运行时环境",
-        "path": "./25b2612c-4178-4978-a7e6-f114c978f74a.ps1",
+        "path": "./25b2612c-4178-4978-a7e6-f114c978f74a",
         "lang": "powershell",
         "admin": true,
         "params": [
@@ -728,7 +728,7 @@
           {
             "id": "96ccc591-290a-437b-bff9-0b511bf194ff",
             "name": "PowerShell 脚本",
-            "path": "./96ccc591-290a-437b-bff9-0b511bf194ff.ps1",
+            "path": "./96ccc591-290a-437b-bff9-0b511bf194ff",
             "lang": "powershell",
             "params": [
               {
@@ -743,7 +743,7 @@
           {
             "id": "506f717a-4b89-4639-ac9a-abf27b247613",
             "name": "PowerShell7 脚本",
-            "path": "./506f717a-4b89-4639-ac9a-abf27b247613.ps1",
+            "path": "./506f717a-4b89-4639-ac9a-abf27b247613",
             "lang": "pwsh",
             "params": [
               {
@@ -758,7 +758,7 @@
           {
             "id": "2a208ffb-a7bd-4531-9e57-a792aca9bc95",
             "name": "CMD 脚本",
-            "path": "./2a208ffb-a7bd-4531-9e57-a792aca9bc95.bat",
+            "path": "./2a208ffb-a7bd-4531-9e57-a792aca9bc95",
             "lang": "cmd",
             "params": [
               {
@@ -773,7 +773,7 @@
           {
             "id": "97c419cd-0bf2-4779-ad80-86c843c93450",
             "name": "Bash 脚本",
-            "path": "./97c419cd-0bf2-4779-ad80-86c843c93450.sh",
+            "path": "./97c419cd-0bf2-4779-ad80-86c843c93450",
             "lang": "bash",
             "params": [
               {
@@ -788,7 +788,7 @@
           {
             "id": "2902c9ac-e740-4e20-a103-5274cd6935f9",
             "name": "Java 脚本",
-            "path": "./2902c9ac-e740-4e20-a103-5274cd6935f9.java",
+            "path": "./2902c9ac-e740-4e20-a103-5274cd6935f9",
             "lang": "java",
             "params": [
               {
@@ -803,7 +803,7 @@
           {
             "id": "2e28f6e5-1c51-4d76-a3a7-e9ee4216fd19",
             "name": "Node 脚本",
-            "path": "./2e28f6e5-1c51-4d76-a3a7-e9ee4216fd19.js",
+            "path": "./2e28f6e5-1c51-4d76-a3a7-e9ee4216fd19",
             "lang": "node",
             "params": [
               {
@@ -818,7 +818,7 @@
           {
             "id": "b45d9e23-1a71-43b8-9299-d00d83955c92",
             "name": "Python 脚本",
-            "path": "./b45d9e23-1a71-43b8-9299-d00d83955c92.py",
+            "path": "./b45d9e23-1a71-43b8-9299-d00d83955c92",
             "lang": "python",
             "params": [
               {
@@ -833,7 +833,7 @@
           {
             "id": "3582efab-c174-423d-9178-2e0e43e52389",
             "name": "Go 脚本",
-            "path": "./3582efab-c174-423d-9178-2e0e43e52389.go",
+            "path": "./3582efab-c174-423d-9178-2e0e43e52389",
             "lang": "go",
             "params": [
               {
@@ -848,7 +848,7 @@
           {
             "id": "e8800535-f7f8-4379-b4ea-68f084ca4027",
             "name": "Rust 脚本",
-            "path": "./e8800535-f7f8-4379-b4ea-68f084ca4027.rs",
+            "path": "./e8800535-f7f8-4379-b4ea-68f084ca4027",
             "lang": "rust",
             "params": [
               {
@@ -871,7 +871,7 @@
       {
         "id": "4e6c54c1-b94b-49fd-9d43-9d602ef79265",
         "name": "Java 外部依赖测试",
-        "path": "./4e6c54c1-b94b-49fd-9d43-9d602ef79265.java",
+        "path": "./4e6c54c1-b94b-49fd-9d43-9d602ef79265",
         "lang": "java",
         "params": [
           {
@@ -886,7 +886,7 @@
       {
         "id": "96218e40-ba3f-4b66-819f-c1ca3d817202",
         "name": "Node 外部依赖测试",
-        "path": "./96218e40-ba3f-4b66-819f-c1ca3d817202.js",
+        "path": "./96218e40-ba3f-4b66-819f-c1ca3d817202",
         "lang": "node",
         "params": [
           {
@@ -905,7 +905,7 @@
           {
             "id": "f0ab93d3-2dd5-494e-955b-fa0969406eb4",
             "name": "Python 外部依赖测试",
-            "path": "./f0ab93d3-2dd5-494e-955b-fa0969406eb4.py",
+            "path": "./f0ab93d3-2dd5-494e-955b-fa0969406eb4",
             "lang": "python",
             "params": [
               {
@@ -922,19 +922,19 @@
       {
         "id": "7512020b-c105-4bb8-839a-d9c792eb02fd",
         "name": "编码测试",
-        "path": "./7512020b-c105-4bb8-839a-d9c792eb02fd.ps1",
+        "path": "./7512020b-c105-4bb8-839a-d9c792eb02fd",
         "lang": "powershell"
       },
       {
         "id": "9cc274be-9b83-4b64-b525-da5eff370b51",
         "name": "10 秒测试",
-        "path": "./9cc274be-9b83-4b64-b525-da5eff370b51.ps1",
+        "path": "./9cc274be-9b83-4b64-b525-da5eff370b51",
         "lang": "powershell"
       },
       {
         "id": "ba6310dd-36e7-4965-af81-2c874a5f86a9",
         "name": "Go 语言测试",
-        "path": "./ba6310dd-36e7-4965-af81-2c874a5f86a9.go",
+        "path": "./ba6310dd-36e7-4965-af81-2c874a5f86a9",
         "lang": "go",
         "params": [
           {
@@ -949,7 +949,7 @@
       {
         "id": "206adeb4-f880-4e14-8122-7e5e225443c7",
         "name": "Rust 语言测试",
-        "path": "./206adeb4-f880-4e14-8122-7e5e225443c7.rs",
+        "path": "./206adeb4-f880-4e14-8122-7e5e225443c7",
         "lang": "rust",
         "params": [
           {
@@ -966,7 +966,7 @@
   {
     "id": "9dffde2b-e338-41ff-86b8-81b83a204290",
     "name": "README",
-    "path": "./9dffde2b-e338-41ff-86b8-81b83a204290.cmd",
+    "path": "./9dffde2b-e338-41ff-86b8-81b83a204290",
     "lang": "cmd"
   }
 ]

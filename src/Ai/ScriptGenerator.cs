@@ -12,7 +12,7 @@ public class AiGeneratedScript
     public string? Id { get; set; }
 
     public string Name { get; set; } = "";
-    /// <summary>AI 建议的文件名（仅作扩展名参考）；物理文件实际由程序按「{id}.{ext}」命名。</summary>
+    /// <summary>AI 建议的文件名（仅供参考，程序不使用它命名；物理文件按「{id}」无扩展名存储）。</summary>
     public string FileName { get; set; } = "";
     public string Lang { get; set; } = "python";
     public string Description { get; set; } = "";
@@ -34,7 +34,7 @@ public class AiGeneratedParam
 
 /// <summary>
 /// AI 脚本生成器：拼装 system prompt（script-writer 技能全文 + 生成约束与 JSON schema）、调用 <see cref="AiClient"/>、
-/// 解析结构化 JSON、把脚本以「{id}.{ext}」平铺写到 script 目录。同时支持「编辑」模式：载入现有脚本内容让 AI 按描述改写。
+/// 解析结构化 JSON、把脚本以「{id}」无扩展名平铺写到 script 目录（解释器由 index.json 的 lang 决定）。同时支持「编辑」模式：载入现有脚本内容让 AI 按描述改写。
 /// 索引条目由调用方经 <see cref="ScriptIndexStore"/> 写入唯一的 script/index.json。
 /// </summary>
 public static class ScriptGenerator
@@ -52,13 +52,13 @@ public static class ScriptGenerator
         sb.AppendLine("----");
         sb.AppendLine("你是 ScriptManager 的内置「AI 脚本编辑器」。根据用户的自然语言描述，生成一个可被 ScriptManager 直接加载运行的脚本。");
         sb.AppendLine("要求：");
-        sb.AppendLine("1. 严格遵循上方「ScriptManager 脚本编写指南」的全部约定：占位符 _p{NAME}、脚本头部「更新时间」行、按语言命名文件、UTF-8 无 BOM、可选 ANSI 颜色、段标题等。");
+        sb.AppendLine("1. 严格遵循上方「ScriptManager 脚本编写指南」的全部约定：占位符 _p{NAME}、脚本头部「更新时间」行、UTF-8 无 BOM、可选 ANSI 颜色、段标题等（物理文件由程序按 UUID 无扩展名存储，lang 决定解释器，无需在文件命名上纠结）。");
         sb.AppendLine("2. 脚本内所有可配置项都必须写成 _p{参数名} 占位符，并在返回 JSON 的 params 中声明对应参数；占位符名字必须与 params[].name 字面完全一致（全大写 + 下划线）。");
         sb.AppendLine("3. 若用户指定了语言则使用该语言，否则选择最合适的语言。只从以下 9 种中选择：powershell / pwsh / cmd / bash / java / node / python / go / rust。");
         sb.AppendLine("4. 只返回一个 JSON 对象（不要任何解释文字、不要 markdown 代码块、不要 ``` 包裹），结构如下：");
         sb.AppendLine(@"{
   ""name"": ""界面显示名"",
-  ""file_name"": ""脚本文件名（含扩展名，如 do-something.py）"",
+  ""file_name"": ""（可选，本程序不使用；脚本文件名由程序按 UUID 无扩展名自动生成）"",
   ""lang"": ""python"",
   ""description"": ""一句话说明脚本用途"",
   ""params"": [
@@ -67,7 +67,7 @@ public static class ScriptGenerator
   ""content"": ""脚本完整源码（UTF-8 无 BOM，含 _p{参数名} 占位符，头含更新时间）""
 }");
         sb.AppendLine("5. params 字段说明：name 必填（全大写 + 下划线）；label 为界面标签；type 可选 text/folder/file/select（默认 text）；required 布尔（默认 false）；options 仅 select 时给字符串数组；default/placeholder 可选；open_after_run 仅导出类「目录」参数设为 true。");
-        sb.AppendLine("6. 物理脚本文件由程序按「UUID.扩展名」命名并平铺存放，无需遵循上方指南中的文件命名规则；file_name 字段可省略（仅当语言难以推断扩展名时参考）。");
+        sb.AppendLine("6. 物理脚本文件由程序按「UUID（无扩展名）」命名并平铺存放在 script 目录下，解释器由 index.json 的 lang 字段决定，与文件名无关；无需遵循上方指南中的文件命名规则，file_name 字段可省略（本程序不使用它命名）。");
         sb.AppendLine("7. 仅返回纯 JSON，便于程序解析。");
         return sb.ToString();
     }
@@ -96,7 +96,7 @@ public static class ScriptGenerator
             user.AppendLine(entry["params"]?.ToJsonString() ?? "（无）");
             user.AppendLine("---- 修改要求 ----");
             user.AppendLine(description);
-            user.AppendLine("注意：file_name 保持与现有脚本一致（" + original.FileName + "）；除非用户明确要求换语言，lang 保持不变。");
+            user.AppendLine("注意：除非用户明确要求换语言，lang 保持不变；file_name 字段可省略（程序不使用它命名）。");
         }
         user.AppendLine("请只返回 JSON。");
         return user.ToString();
@@ -177,23 +177,18 @@ public static class ScriptGenerator
     }
 
     /// <summary>
-    /// 脚本物理文件名：{id}.{lang 对应扩展名}（平铺在 script 目录下，与 index.json 同级）。
-    /// lang 无映射时回退 AI 建议文件名的扩展名，再回退 .txt。id 缺失时补新 id。
+    /// 脚本物理文件名：就是条目的 id（UUID），无扩展名，平铺在 script 目录下与 index.json 同级。
+    /// 解释器完全由 index.json 的 lang 字段决定，与文件名无关——改语言 / 内容都只改 JSON 与文件内容，
+    /// 无需改文件名。id 缺失时补新 id。
     /// </summary>
     public static string FileNameFor(AiGeneratedScript script)
     {
         script.Id ??= ScriptIndexStore.NewId();
-        var ext = ScriptIndexStore.FileExtensionForLang(script.Lang);
-        if (string.IsNullOrEmpty(ext))
-        {
-            var fromName = Path.GetExtension(script.FileName ?? "");
-            ext = fromName.Length > 0 ? fromName : ".txt";
-        }
-        return script.Id + ext;
+        return script.Id;
     }
 
     /// <summary>
-    /// 把生成的脚本写到 script 目录（{id}.{ext} 平铺命名，与 index.json 同级），不触碰索引；
+    /// 把生成的脚本写到 script 目录（{id} 无扩展名平铺命名，与 index.json 同级），不触碰索引；
     /// 索引条目由调用方经 <see cref="ScriptIndexStore"/> 插入。返回脚本文件完整路径。
     /// </summary>
     public static string WriteScriptFile(AiGeneratedScript script)
@@ -205,7 +200,7 @@ public static class ScriptGenerator
     }
 
     /// <summary>
-    /// 构建该脚本对应的索引条目：id + path（./&lt;id&gt;.&lt;ext&gt;，相对 script 根目录）按唯一约定生成；
+    /// 构建该脚本对应的索引条目：id + path（./&lt;id&gt;，无扩展名，相对 script 根目录）按唯一约定生成；
     /// 编辑模式沿用原条目 id（script.Id 已在载入种子时赋值）。
     /// </summary>
     public static JsonObject BuildEntry(AiGeneratedScript script)
