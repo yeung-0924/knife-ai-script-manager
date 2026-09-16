@@ -83,6 +83,7 @@ public partial class ConfigEditorWindow : Window
         _aiApiKey = ak;
         AiApiKeyBox.Password = ak;
         AiApiKeyTextBox.Text = ak;
+        UpdateApiKeyClearVisibility();
     }
 
     /// <summary>
@@ -227,13 +228,34 @@ public partial class ConfigEditorWindow : Window
             AiApiKeyBox.Password = AiApiKeyTextBox.Text;
     }
 
-    /// <summary>隐藏态（PasswordBox）输入：无条件记录明文（显示态下它被隐藏、只在切换时被同步赋同值，无副作用）。</summary>
+    /// <summary>隐藏态（PasswordBox）输入：无条件记录明文（显示态下它被隐藏、只在切换时被同步赋同值，无副作用），并刷新清空(×)按钮显隐。</summary>
     private void AiApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
-        => _aiApiKey = AiApiKeyBox.Password;
+    {
+        _aiApiKey = AiApiKeyBox.Password;
+        UpdateApiKeyClearVisibility();
+    }
 
-    /// <summary>显示态（TextBox）输入：无条件记录明文（隐藏态下同理，仅在切换时被同步赋同值）。</summary>
+    /// <summary>显示态（TextBox）输入：无条件记录明文（隐藏态下同理，仅在切换时被同步赋同值），并刷新清空(×)按钮显隐。</summary>
     private void AiApiKeyTextBox_TextChanged(object sender, TextChangedEventArgs e)
-        => _aiApiKey = AiApiKeyTextBox.Text;
+    {
+        _aiApiKey = AiApiKeyTextBox.Text;
+        UpdateApiKeyClearVisibility();
+    }
+
+    /// <summary>根据当前密钥内容是否为空，切换框内右侧清空(×)按钮的可见性（与各行 ClearButton 行为一致）。</summary>
+    private void UpdateApiKeyClearVisibility()
+    {
+        AiApiKeyClear.Visibility = string.IsNullOrEmpty(_aiApiKey) ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    /// <summary>清空 API 密钥：同时清空隐藏态(PasswordBox)与显示态(TextBox)，回落到「未配置」。</summary>
+    private void AiApiKeyClear_Click(object sender, RoutedEventArgs e)
+    {
+        AiApiKeyBox.Password = "";
+        AiApiKeyTextBox.Text = "";
+        _aiApiKey = "";
+        UpdateApiKeyClearVisibility();
+    }
 
     /// <summary>AI 文本行（base_url / model）的 × 清空：置空即回落到占位符默认值。</summary>
     private void AiTextClear_Click(object sender, RoutedEventArgs e)

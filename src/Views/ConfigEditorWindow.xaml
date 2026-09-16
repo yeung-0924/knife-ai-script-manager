@@ -129,8 +129,11 @@
 
             <!-- API 密钥：PasswordBox（默认隐藏）+ 勾选切换为明文 TextBox（隐藏泄露）。
                  与其它输入框统一：外层 Border 绘制圆角边框 + 聚焦变蓝高亮（IsKeyboardFocusWithin），
-                 内部 PasswordBox / TextBox 去边框、透明底。「显示/隐藏」切换按钮（PasswordRevealToggle）
-                 内嵌于输入框右侧，等同文件上传式的框内图标按钮；右内边距 24 给该按钮留位。 -->
+                 内部 PasswordBox / TextBox 去边框、透明底。框内右侧并排两个图标按钮，等同文件选择框那种
+                 「功能按钮 + × 清空」并存的样式：
+                 · 清空(×)：仅在已有密钥内容时显示（后台 UpdateApiKeyClearVisibility 控制）；
+                 · 显示/隐藏(眼睛)：内嵌图标按钮，点击在 PasswordBox / TextBox 间切换。
+                 右内边距 40 给这两个按钮留位，长密钥在按钮左侧被裁剪。 -->
             <Grid Margin="0,0,0,12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="104" />
@@ -152,17 +155,23 @@
                         </Style>
                     </Border.Style>
                     <Grid>
-                        <!-- 右内边距 24：给右侧内嵌的显示/隐藏切换按钮留位，长密钥在按钮左侧被裁剪 -->
+                        <!-- 右内边距 40：给右侧内嵌的清空(×) + 显示/隐藏(眼睛)两个按钮留位，长密钥在按钮左侧被裁剪 -->
                         <PasswordBox x:Name="AiApiKeyBox" VerticalAlignment="Center"
-                                     Style="{StaticResource ClearablePasswordBoxInline}" Padding="1,0,24,0"
+                                     Style="{StaticResource ClearablePasswordBoxInline}" Padding="1,0,40,0"
                                      PasswordChanged="AiApiKeyBox_PasswordChanged"
                                      Visibility="{Binding IsChecked, ElementName=AiApiKeyReveal, Converter={x:Static local:InverseBoolToVisibilityConverter.Instance}}" />
                         <TextBox x:Name="AiApiKeyTextBox" VerticalAlignment="Center"
-                                 Style="{StaticResource ClearableTextBoxInline}" Padding="1,0,24,0"
+                                 Style="{StaticResource ClearableTextBoxInline}" Padding="1,0,40,0"
                                  TextChanged="AiApiKeyTextBox_TextChanged"
                                  Visibility="{Binding IsChecked, ElementName=AiApiKeyReveal, Converter={x:Static local:BooleanToVisibilityConverter.Instance}}" />
-                        <!-- 显示/隐藏切换：内嵌于输入框右侧的图标按钮（眼睛 ↔ 眼睛划线），点击在 PasswordBox / TextBox 间切换 -->
+                        <!-- 清空按钮(×)：仅在已有密钥内容时显示；距右 24 给最右侧的显示/隐藏眼睛按钮让位 -->
+                        <Button x:Name="AiApiKeyClear" Style="{StaticResource ClearButton}"
+                                Margin="0,0,24,0" Click="AiApiKeyClear_Click"
+                                ToolTip="{x:Static local:Strings.ClearButtonToolTip}"
+                                Visibility="Collapsed" />
+                        <!-- 显示/隐藏切换：内嵌于输入框最右侧的图标按钮（眼睛 ↔ 眼睛划线），点击在 PasswordBox / TextBox 间切换 -->
                         <CheckBox x:Name="AiApiKeyReveal" Style="{StaticResource PasswordRevealToggle}"
+                                  Margin="0,0,4,0"
                                   Checked="AiApiKeyReveal_Changed" Unchecked="AiApiKeyReveal_Changed" />
                     </Grid>
                 </Border>
