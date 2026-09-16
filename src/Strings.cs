@@ -51,7 +51,7 @@ public static class Strings
     #region AI 生成脚本
     public const string TitleAiCreate = "创建脚本";
     public const string TitleAiEdit = "编辑脚本";
-    public const string TitleAiGenerate = "AI 生成脚本";
+    public const string TitleAiGenerate = "生成脚本";
     public const string AiGenDescLabel = "脚本功能描述";
     public const string AiGenDescPlaceholder = "用自然语言描述脚本要做什么；可一并说明需要的参数（如：参数「目录」类型为 folder、参数「关键字」类型为 text）和语言（如：python）。越具体，生成越准。";
     public const string AiGenEditLabel = "修改要求（要改什么，越具体越好）";
