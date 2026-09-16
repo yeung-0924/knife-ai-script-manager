@@ -127,9 +127,10 @@
             <TextBlock Text="{x:Static local:Strings.AiConfigSection}"
                        FontWeight="Bold" Margin="0,16,0,8" />
 
-            <!-- API 密钥：PasswordBox（默认隐藏）+ 复选框切换为明文 TextBox。
+            <!-- API 密钥：PasswordBox（默认隐藏）+ 勾选切换为明文 TextBox（隐藏泄露）。
                  与其它输入框统一：外层 Border 绘制圆角边框 + 聚焦变蓝高亮（IsKeyboardFocusWithin），
-                 内部 PasswordBox / TextBox 去边框、透明底，由外层 Border 承载框，视觉与其它行一致。 -->
+                 内部 PasswordBox / TextBox 去边框、透明底。「显示/隐藏」切换按钮（PasswordRevealToggle）
+                 内嵌于输入框右侧，等同文件上传式的框内图标按钮；右内边距 24 给该按钮留位。 -->
             <Grid Margin="0,0,0,12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="104" />
@@ -137,35 +138,34 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="{x:Static local:Strings.AiApiKeyLabel}"
                            VerticalAlignment="Center" Margin="0,0,6,0" />
-                <DockPanel Grid.Column="1" LastChildFill="True">
-                    <CheckBox DockPanel.Dock="Right" x:Name="AiApiKeyReveal"
-                              Content="显示" VerticalAlignment="Center" Margin="8,0,0,0"
-                              Checked="AiApiKeyReveal_Changed" Unchecked="AiApiKeyReveal_Changed" />
-                    <Border BorderThickness="1" CornerRadius="4"
-                            Height="24" VerticalAlignment="Center" SnapsToDevicePixels="True"
-                            Background="{DynamicResource BrushPanelBg}">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
-                                <Style.Triggers>
-                                    <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                                        <Setter Property="BorderBrush" Value="{DynamicResource BrushPrimary}" />
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <Grid>
-                            <PasswordBox x:Name="AiApiKeyBox" VerticalAlignment="Center"
-                                         Style="{StaticResource ClearablePasswordBoxInline}"
-                                         PasswordChanged="AiApiKeyBox_PasswordChanged"
-                                         Visibility="{Binding IsChecked, ElementName=AiApiKeyReveal, Converter={x:Static local:InverseBoolToVisibilityConverter.Instance}}" />
-                            <TextBox x:Name="AiApiKeyTextBox" VerticalAlignment="Center"
-                                     Style="{StaticResource ClearableTextBoxInline}"
-                                     TextChanged="AiApiKeyTextBox_TextChanged"
-                                     Visibility="{Binding IsChecked, ElementName=AiApiKeyReveal, Converter={x:Static local:BooleanToVisibilityConverter.Instance}}" />
-                        </Grid>
-                    </Border>
-                </DockPanel>
+                <Border Grid.Column="1" BorderThickness="1" CornerRadius="4"
+                        Height="24" VerticalAlignment="Center" SnapsToDevicePixels="True"
+                        Background="{DynamicResource BrushPanelBg}">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+                            <Style.Triggers>
+                                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                    <Setter Property="BorderBrush" Value="{DynamicResource BrushPrimary}" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <Grid>
+                        <!-- 右内边距 24：给右侧内嵌的显示/隐藏切换按钮留位，长密钥在按钮左侧被裁剪 -->
+                        <PasswordBox x:Name="AiApiKeyBox" VerticalAlignment="Center"
+                                     Style="{StaticResource ClearablePasswordBoxInline}" Padding="1,0,24,0"
+                                     PasswordChanged="AiApiKeyBox_PasswordChanged"
+                                     Visibility="{Binding IsChecked, ElementName=AiApiKeyReveal, Converter={x:Static local:InverseBoolToVisibilityConverter.Instance}}" />
+                        <TextBox x:Name="AiApiKeyTextBox" VerticalAlignment="Center"
+                                 Style="{StaticResource ClearableTextBoxInline}" Padding="1,0,24,0"
+                                 TextChanged="AiApiKeyTextBox_TextChanged"
+                                 Visibility="{Binding IsChecked, ElementName=AiApiKeyReveal, Converter={x:Static local:BooleanToVisibilityConverter.Instance}}" />
+                        <!-- 显示/隐藏切换：内嵌于输入框右侧的图标按钮（眼睛 ↔ 眼睛划线），点击在 PasswordBox / TextBox 间切换 -->
+                        <CheckBox x:Name="AiApiKeyReveal" Style="{StaticResource PasswordRevealToggle}"
+                                  Checked="AiApiKeyReveal_Changed" Unchecked="AiApiKeyReveal_Changed" />
+                    </Grid>
+                </Border>
             </Grid>
 
             <!-- API 地址 / 模型：可手输文本行（带 × 清空 + 占位符） -->

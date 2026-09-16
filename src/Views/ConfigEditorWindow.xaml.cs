@@ -20,8 +20,9 @@ namespace AIScriptManager.Views;
 ///   <item>缓存目录(cache_dir)被改动时，<see cref="CacheStore.Relocate"/> 把旧目录内容整体迁移到新目录并即时切换，无需重启；</item>
 ///   <item>运行时目录(runtime_dir)/日志目录(log_dir)等仅作环境变量注入或目录图标，下次启动脚本/重绘即生效。</item>
 /// </list>
-/// 目录/文件项均为只读选择框（浏览按钮），不可手输；未自定义时留空并显示默认相对路径占位符，
-/// 点击 × 或「默认值」可清除、回落到内置相对默认（script\index.json / lib / runtime / cache / log）。
+/// 目录/文件项均为只读选择框（浏览按钮），不可手输；未自定义时留空并显示「解析为 exe 同级的真实绝对路径」占位符
+/// （如 D:\Workspace\knife-ai-script-manager\dist\AIScriptManager\lib，随软件所在目录自动变化），
+/// 点击 × 或「默认值」可清除、回落到内置默认（script\index.json / lib / runtime / cache / log）。
 /// 「默认执行超时(秒)」与 AI「最大追问轮次」是弹窗内允许手输的数字项（前者空白 = 不限制，后者空白 = 默认 0）。
 /// </summary>
 public partial class ConfigEditorWindow : Window
@@ -87,11 +88,13 @@ public partial class ConfigEditorWindow : Window
     /// <summary>
     /// 构建一行：内部 <see cref="ConfigRow.Value"/> 只保存用户在 config.ini 中的「自定义覆盖值」
     /// （绝对路径），未自定义时为空白。空白即代表「使用默认相对路径」，由 <see cref="AppConfig"/> 在
-    /// 读取时回落到 Placeholder 所示的相对默认值（script\index.json / lib / runtime / cache / log）。
+    /// 读取时回落到各目录默认（exe 同级的 script\index.json / lib / runtime / cache / log）。
+    /// 占位符显示的是该默认解析为 exe 同级的<b>真实绝对路径</b>（如 D:\...\dist\AIScriptManager\lib），
+    /// 随软件所在目录自动变化；相对默认 relDefault 仅用于判断 config 显式值是否等同内置默认。
     /// 注意：config.ini 里若把默认相对路径原样写了出来（如 lib_dir = lib），语义与留空完全等价，
     /// 此时同样视为「未自定义」，显示为空白 + 占位符，避免用户误以为已经改过配置。
     /// </summary>
-    private static ConfigRow MakeRow(string key, string label, string kind, string placeholder)
+    private static ConfigRow MakeRow(string key, string label, string kind, string relDefault)
     {
         var raw = AppConfig.GetRawValue("script", key);
         return new ConfigRow
@@ -99,8 +102,9 @@ public partial class ConfigEditorWindow : Window
             Key = key,
             Label = label,
             Kind = kind,
-            Placeholder = placeholder,
-            Value = IsBuiltInDefault(raw, placeholder) ? "" : raw!.Trim(),
+            // 占位符 = 解析为 exe 同级的真实绝对路径（随软件目录自动变化）；相对默认仅用于「是否等同内置默认」比较
+            Placeholder = AppConfig.GetDefaultPath(key),
+            Value = IsBuiltInDefault(raw, relDefault) ? "" : raw!.Trim(),
         };
     }
 

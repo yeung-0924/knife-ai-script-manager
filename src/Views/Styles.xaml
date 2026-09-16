@@ -48,6 +48,11 @@
     <SolidColorBrush x:Key="BrushSplitter" Color="#FFF0F0F0" />
     <SolidColorBrush x:Key="BrushPlaceholder" Color="#FFA0A0A0" />
 
+    <!-- Lucide 图标几何（眼睛 / 眼睛划线）：用于密码框内嵌的「显示/隐藏」切换按钮。
+         眼睛：眼眶轮廓 + 瞳孔圆环（描边、不填充）；眼睛划线：四段折线（含一道斜杠）表示已隐藏。 -->
+    <Geometry x:Key="EyeGeometry">M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0 M12 9 A3 3 0 1 1 12 15 A3 3 0 1 1 12 9 Z</Geometry>
+    <Geometry x:Key="EyeOffGeometry">M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49 M14.084 14.158a3 3 0 0 1-4.242-4.242 M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143 m2 2 20 20</Geometry>
+
     <!-- 按钮基础样式（24px、圆角、悬浮/禁用态） -->
     <Style x:Key="BaseButton" TargetType="Button">
         <Setter Property="Height" Value="24" />
@@ -177,6 +182,53 @@
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="#FFC8C8C8" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- 密码框内嵌「显示/隐藏」切换按钮：靠右、透明底、鼠标悬停变蓝，与 ClearButton 同处框内右侧。
+         未勾选（隐藏态）显示眼睛（EyeGeometry），勾选（显示态）切换为眼睛划线（EyeOffGeometry）+ 变蓝。
+         点击逻辑由 CheckBox 的 Checked/Unchecked 事件驱动（切换 PasswordBox / TextBox 可见性并同步明文）。 -->
+    <Style x:Key="PasswordRevealToggle" TargetType="CheckBox">
+        <Setter Property="Width" Value="16" />
+        <Setter Property="Height" Value="16" />
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,4,0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="ToolTip" Value="显示 / 隐藏密钥" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Grid Background="Transparent" Width="16" Height="16">
+                        <Path x:Name="EyeOpen" Data="{StaticResource EyeGeometry}"
+                              Width="14" Height="14" Stretch="Uniform"
+                              Stroke="{DynamicResource BrushTextSecondary}" StrokeThickness="2"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Path x:Name="EyeClosed" Data="{StaticResource EyeOffGeometry}"
+                              Width="14" Height="14" Stretch="Uniform"
+                              Stroke="{DynamicResource BrushTextSecondary}" StrokeThickness="2"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Visibility="Collapsed" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="EyeOpen" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="EyeClosed" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="EyeClosed" Property="Stroke" Value="{DynamicResource BrushPrimary}" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="EyeOpen" Property="Stroke" Value="{DynamicResource BrushPrimary}" />
+                            <Setter TargetName="EyeClosed" Property="Stroke" Value="{DynamicResource BrushPrimary}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

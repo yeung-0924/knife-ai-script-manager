@@ -87,6 +87,22 @@ public static class AppConfig
     public static string LogDir => ResolveDir("script", "log_dir", "log");
 
     /// <summary>
+    /// 各 [script] 目录/文件配置项「未自定义时」对应的默认绝对路径（相对 exe 目录解析），
+    /// 供配置编辑弹窗的占位提示显示真实路径——随软件所在目录自动变化
+    /// （如把软件从 D:\Workspace\... 移到 E:\Workspace\...，占位符即显示 E:\...\lib）。
+    /// 仅已知 key 有对应默认值，未知 key 返回空串。
+    /// </summary>
+    public static string GetDefaultPath(string key) => key.ToLowerInvariant() switch
+    {
+        "script_index_file" => ScriptIndexFilePath,
+        "lib_dir" => LibDir,
+        "runtime_dir" => RuntimeDir,
+        "cache_dir" => CacheDir,
+        "log_dir" => LogDir,
+        _ => "",
+    };
+
+    /// <summary>
     /// 脚本默认执行超时（秒）。0 或负数表示不限制（无限等待，默认）。
     /// 单脚本可在 index.json 用 <c>timeout</c> 字段单独覆盖；两者皆未设则不超时。
     /// 配置改动保存即生效，无需重启（每次执行脚本时现读）。
