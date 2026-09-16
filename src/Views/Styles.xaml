@@ -191,7 +191,9 @@
 
     <!-- 密码框内嵌「显示/隐藏」切换按钮：靠右、透明底、鼠标悬停变蓝，与 ClearButton 同处框内右侧。
          未勾选（隐藏态）显示眼睛（EyeGeometry），勾选（显示态）切换为眼睛划线（EyeOffGeometry）+ 变蓝。
-         点击逻辑由 CheckBox 的 Checked/Unchecked 事件驱动（切换 PasswordBox / TextBox 可见性并同步明文）。 -->
+         点击逻辑由 CheckBox 的 Checked/Unchecked 事件驱动（切换 PasswordBox / TextBox 可见性并同步明文）。
+         注：StrokeThickness 取 1.2（非 2）。WPF 的 Path 用 Stretch 缩放几何时不会同步缩放描边，
+         若沿用 Lucide 24 单位稿的 2，在 14px 图标上会粗得刺眼；1.2 ≈ 2/24×14，还原 Lucide 原始纤细比例。 -->
     <Style x:Key="PasswordRevealToggle" TargetType="CheckBox">
         <Setter Property="Width" Value="16" />
         <Setter Property="Height" Value="16" />
@@ -210,12 +212,12 @@
                     <Grid Background="Transparent" Width="16" Height="16">
                         <Path x:Name="EyeOpen" Data="{StaticResource EyeGeometry}"
                               Width="14" Height="14" Stretch="Uniform"
-                              Stroke="{DynamicResource BrushTextSecondary}" StrokeThickness="2"
+                              Stroke="{DynamicResource BrushTextSecondary}" StrokeThickness="1.2"
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"
                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                         <Path x:Name="EyeClosed" Data="{StaticResource EyeOffGeometry}"
                               Width="14" Height="14" Stretch="Uniform"
-                              Stroke="{DynamicResource BrushTextSecondary}" StrokeThickness="2"
+                              Stroke="{DynamicResource BrushTextSecondary}" StrokeThickness="1.2"
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"
                               HorizontalAlignment="Center" VerticalAlignment="Center"
                               Visibility="Collapsed" />
