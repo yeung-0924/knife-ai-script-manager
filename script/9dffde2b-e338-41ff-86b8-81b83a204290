@@ -1,7 +1,7 @@
 @echo off
 rem 更新时间: 2026-09-04 14:59:35
 rem ============================================================================
-rem  ScriptManager 使用说明
+rem  AIScriptManager 使用说明
 rem ============================================================================
 
 rem 生成 ESC 转义字符（Windows 10+ Conhost 支持 ANSI）
@@ -14,8 +14,8 @@ echo %ESC%[90m本工具运行在 windows 操作系统，需 .net10 环境支持�
 echo.
 rem ---------- 标题：目录说明 ----------
 echo %ESC%[91m# 目录说明：%ESC%[0m
-echo %ESC%[93mScriptManager 根目录%ESC%[0m
-echo %ESC%[93m  - ScriptManager.exe 主程序%ESC%[0m
+echo %ESC%[93mAIScriptManager 根目录%ESC%[0m
+echo %ESC%[93m  - AIScriptManager.exe 主程序%ESC%[0m
 echo %ESC%[93m  - config 配置目录%ESC%[0m
 echo %ESC%[93m    - config.ini 配置文件%ESC%[0m
 echo %ESC%[93m  - script 脚本目录%ESC%[0m
@@ -32,6 +32,6 @@ echo %ESC%[93m  - log 日志文件%ESC%[0m
 echo.
 rem ---------- 标题：脚本编写说明 ----------
 echo %ESC%[91m# 脚本编写说明：%ESC%[0m
-echo %ESC%[90m详见 ScriptManager/README.md%ESC%[0m
+echo %ESC%[90m详见 AIScriptManager/README.md%ESC%[0m
 echo.
 

@@ -1,8 +1,8 @@
 // 更新时间: 2026-09-04 17:31:44
-// Rust 最小模板（ScriptManager）
+// Rust 最小模板（AIScriptManager）
 // 参数用 _p{NAME} 占位符，运行前由程序替换；文件命名须 snake_case（如 hello.rs）
 // 运行前程序会用 rustc 把本文件编译为临时 exe 再执行
-// 注：ScriptManager 运行时会把本文件写成随机临时文件（se_script_*.rs）再 rustc 编译，
+// 注：AIScriptManager 运行时会把本文件写成随机临时文件（se_script_*.rs）再 rustc 编译，
 // 故无法用固定文件名 include_str!；改为用 std::env::current_exe() 定位「同目录同名 .rs 源码」并解析「更新时间」（不硬编码，改名/随机名都照常工作）
 use std::fs;
 

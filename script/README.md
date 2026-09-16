@@ -1,9 +1,9 @@
-# ScriptManager 脚本说明
+# AIScriptManager 脚本说明
 
 本目录包含两类脚本：
 
-- **`internal/`**：内置脚本，编译时嵌入 `ScriptManager.exe` 内部，随程序版本发布，普通用户无需修改。
-- **`external/`**：自定义脚本，会显示在程序左侧「自定义脚本」分类下。程序首次启动时会解包到 `ScriptManager.exe` 同级 `Script/external/` 目录；你也可以直接在解包后的目录里增删改，**点界面上的「刷新」按钮即可重新加载，无需重启程序**。
+- **`internal/`**：内置脚本，编译时嵌入 `AIScriptManager.exe` 内部，随程序版本发布，普通用户无需修改。
+- **`external/`**：自定义脚本，会显示在程序左侧「自定义脚本」分类下。程序首次启动时会解包到 `AIScriptManager.exe` 同级 `Script/external/` 目录；你也可以直接在解包后的目录里增删改，**点界面上的「刷新」按钮即可重新加载，无需重启程序**。
 
 > 本 README 会随打包复制到交付目录 `Script/README.md`。
 
@@ -11,7 +11,7 @@
 
 ## 一、使用方式
 
-1. 启动 `ScriptManager.exe`，左侧树展开「自定义脚本」。
+1. 启动 `AIScriptManager.exe`，左侧树展开「自定义脚本」。
 2. 点击某个脚本 → 右侧出现参数面板（若脚本有 `params`）和预览。
 3. 填写/确认参数，点击左上角「执行」运行；运行时按钮变为红色「停止」，可强制终止进程。
 4. 需要调整脚本内容或新增脚本：直接在 `Script/external/` 下编辑或新增文件，然后点「刷新」即可看到更新。

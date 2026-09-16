@@ -1,12 +1,12 @@
 ---
 name: script-writer
-description: 当用户（或使用本技能的 AI）需要为 ScriptManager 编写、修改、新增脚本时触发。涵盖 9 种语言（powershell/pwsh/cmd/bash/node/python/java/go/rust）的脚本编写规范、index.json 注册方式、参数占位符约定、命名/编码/颜色约定与最小模板。适用于不熟悉脚本语言的用户，借助本技能即可生成可直接被 ScriptManager 加载运行的脚本。
+description: 当用户（或使用本技能的 AI）需要为 AIScriptManager 编写、修改、新增脚本时触发。涵盖 9 种语言（powershell/pwsh/cmd/bash/node/python/java/go/rust）的脚本编写规范、index.json 注册方式、参数占位符约定、命名/编码/颜色约定与最小模板。适用于不熟悉脚本语言的用户，借助本技能即可生成可直接被 AIScriptManager 加载运行的脚本。
 ---
 
-# ScriptManager 脚本编写指南（AI 辅助编写用）
+# AIScriptManager 脚本编写指南（AI 辅助编写用）
 
-本技能帮助**不熟悉脚本语言的用户**通过 AI 生成能被 ScriptManager 正确加载、运行的脚本。
-ScriptManager 是一个 Windows 脚本管理器：读取 `script/index.json` 列出脚本，用户点「执行」即可运行，右侧实时显示日志。
+本技能帮助**不熟悉脚本语言的用户**通过 AI 生成能被 AIScriptManager 正确加载、运行的脚本。
+AIScriptManager 是一个 Windows 脚本管理器：读取 `script/index.json` 列出脚本，用户点「执行」即可运行，右侧实时显示日志。
 
 > 本文件随 `script/` 目录一起分发给最终用户。你的 AI 只需照此规范生成脚本，并把条目写进对应的 `index.json` 即可。
 
@@ -14,7 +14,7 @@ ScriptManager 是一个 Windows 脚本管理器：读取 `script/index.json` 列
 
 ## 一、脚本如何被加载（必须懂）
 
-ScriptManager **只**加载 `script/index.json`（嵌套数组，用 `children` 表达目录层级）里登记过的脚本。新增脚本必须两步：
+AIScriptManager **只**加载 `script/index.json`（嵌套数组，用 `children` 表达目录层级）里登记过的脚本。新增脚本必须两步：
 
 1. 把脚本文件放到 `script/` 下合适子目录（文件名由程序按 UUID 托管，无需按语言命名，详见第三节）。
 2. 在 `index.json` 里把它作为「脚本节点」加进目标目录节点的 `children`。
@@ -253,7 +253,7 @@ fmt.Printf("%s[入参]%s name = %s%s\n", green, reset, name, reset)
 
 ## 八、最小模板（直接复制改）
 
-以 PowerShell 为例，一个可被 ScriptManager 运行的完整脚本：
+以 PowerShell 为例，一个可被 AIScriptManager 运行的完整脚本：
 
 ```powershell
 # 我的脚本
@@ -342,7 +342,7 @@ Write-Host "接收参数 Name = $Name"
   } catch { }
   if (-not [string]::IsNullOrWhiteSpace($updateTime)) { SayC $YELLOW '信息' "更新时间: $updateTime" }
   ```
-  其它语言同理：用各自方式读取首行注释里的 `更新时间:` 并原样输出一行。**目的**：用户贴错误日志时，AI 无需对照文件、直接从日志里就能读到脚本版本时间，立刻判断其运行的脚本是否为最新。模板 `templates/tpl_*.xx`（含 cmd/bash/node/python/go/rust 等非 PowerShell 语言）均已内置等价打印段，新脚本直接复用：解释型语言从 `$0` / `__file__` 等读自身源码解析；编译型语言（Go / Rust）运行时源码已被写成随机临时文件（ScriptManager 用 `se_script_*.go` / `se_script_*.rs` 经 `go run` / `rustc` 执行），故不能用固定文件名 `//go:embed` / `include_str!`，改为 Go 用 `runtime.Caller(0)` 取自身源码路径、Rust 用 `std::env::current_exe()` 定位同目录同名 `.rs` 源码来解析「更新时间」。两者均不依赖文件真实名字，改名或随机名都照常工作。
+  其它语言同理：用各自方式读取首行注释里的 `更新时间:` 并原样输出一行。**目的**：用户贴错误日志时，AI 无需对照文件、直接从日志里就能读到脚本版本时间，立刻判断其运行的脚本是否为最新。模板 `templates/tpl_*.xx`（含 cmd/bash/node/python/go/rust 等非 PowerShell 语言）均已内置等价打印段，新脚本直接复用：解释型语言从 `$0` / `__file__` 等读自身源码解析；编译型语言（Go / Rust）运行时源码已被写成随机临时文件（AIScriptManager 用 `se_script_*.go` / `se_script_*.rs` 经 `go run` / `rustc` 执行），故不能用固定文件名 `//go:embed` / `include_str!`，改为 Go 用 `runtime.Caller(0)` 取自身源码路径、Rust 用 `std::env::current_exe()` 定位同目录同名 `.rs` 源码来解析「更新时间」。两者均不依赖文件真实名字，改名或随机名都照常工作。
 
 ---
 
@@ -357,7 +357,7 @@ Write-Host "接收参数 Name = $Name"
 5. **国内网络：GitHub API / raw.githubusercontent 易墙**：原 GitHub 源先调 `api.github.com` 查版本会卡死 / 超时，改为直接用「大版本.0」（如 7.5 → 7.5.0）拼发布资产下载链接，不依赖版本查询 API。下载源分两类、互不回退（见第 10 条）：`国内镜像` 源的下载地址本身就是 ghproxy 国内代理（`https://ghproxy.net/https://...`、`https://mirror.ghproxy.com/https://...`，同属国内镜像源）；`GitHub 官方` 源只用官方直连（`https://github.com/...`），不回退到代理。失败给出「github.com 可达性」诊断，而非含糊的空值崩溃。
 6. **编码：脚本源文件一律 UTF-8 无 BOM**（与 IDEA 统一）；程序侧 `EncodingHelper` 检测 + `.NET File.ReadAllText` 已兼容无 BOM 与带 BOM 两种，脚本侧无需特殊处理。注意 AI 生成文件也要保持无 BOM，否则中文 Windows + GBK 解析会误报语法错误。
 7. **（来自 `src/CmdScriptRewriter.cs` 的实机坑）CMD 中文重写必须逐行全覆盖**：程序对 CMD 中文做编码重写时要逐行处理、不能跳过注释行，否则会漏改导致乱码。
-8. **Go / Rust 模板不能用固定文件名 `//go:embed` / `include_str!` 内嵌自身源码来打印「更新时间」**：ScriptManager 运行时会把脚本写成随机临时文件 `se_script_{Guid}.go` / `se_script_{Guid}.rs`（见 `MainViewModel.cs` 的 `Path.GetTempPath()` + `LangToTempExt`），再 `go run` / `rustc` 执行。embed/include_str! 的文件名在编译期就必须存在，而临时文件名是随机 GUID，必然报「no matching files / cannot find file」。正确写法：Go 用 `runtime.Caller(0)` 取自身源码路径再解析；Rust 用 `std::env::current_exe().with_extension("rs")` 定位同目录同名 `.rs` 源码（并兜底扫描 exe 所在目录所有 `.rs`）。两者均不依赖文件真实名字，改名 / 随机名都照常工作。
+8. **Go / Rust 模板不能用固定文件名 `//go:embed` / `include_str!` 内嵌自身源码来打印「更新时间」**：AIScriptManager 运行时会把脚本写成随机临时文件 `se_script_{Guid}.go` / `se_script_{Guid}.rs`（见 `MainViewModel.cs` 的 `Path.GetTempPath()` + `LangToTempExt`），再 `go run` / `rustc` 执行。embed/include_str! 的文件名在编译期就必须存在，而临时文件名是随机 GUID，必然报「no matching files / cannot find file」。正确写法：Go 用 `runtime.Caller(0)` 取自身源码路径再解析；Rust 用 `std::env::current_exe().with_extension("rs")` 定位同目录同名 `.rs` 源码（并兜底扫描 exe 所在目录所有 `.rs`）。两者均不依赖文件真实名字，改名 / 随机名都照常工作。
 9. **`$x = Func` 会把函数的 `Write-Output` 日志一并收进变量（变成数组，污染路径变量）**：若安装 / 辅助函数一边用 `SayC` / `Say`（`Write-Output`，成功流 / stdout）打印诊断、一边 `return` 路径，调用处 `$x = Func` 会把「所有诊断行 + return 值」收成一个数组——路径变量变成诊断文本数组，`Join-Path $x` 会报含糊的 `Cannot bind argument to parameter 'Path' because it is null`，且 `if ($x)` 还会因数组非空而误判「成功」、跳过本该发生的回退。`Install-PowerShell7.ps1` 的 `Install-ViaMirror` / `Install-ViaGitHubPortable` 已踩此坑（现象：报错里 `pwshHome=` 后面跟着一长串 `[信息]…[异常]…` 诊断文本）。正确写法：调用处用 `@(Func)[-1]` 只取 pipeline 最后一个元素（即 `return` 值），丢弃前面的诊断行；或函数把结果写进 `$script:` 变量再 `return`（不返回值）。本仓库 `Install-PowerShell7.ps1` 已采用 `[-1]` 写法。
 10. **运行时下载脚本「尊重用户所选下载源，不自动回退」（暮云明确的设计规则，2026-09-05 再次强调并推广到所有 runtime 下载/安装脚本）**：只要脚本提供「下载源」选择（如 `国内镜像` / `GitHub 官方`），用户选了哪个就用哪个；某一下载源不可达或失败，就**如实提示「失败」内容 + 原因 + 建议并 `exit 1`，绝不悄悄回退到另一下载源**。例如用户选了 `国内镜像`（或未来的「火山源」之类）却从 `GitHub 官方` 下到了文件，用户会困惑「我明明选的不是这个源」。一个下载源内部的多个候选地址（如同属「国内镜像」的 `ghproxy.net` / `mirror.ghproxy.com`）可顺序尝试，但**绝不可跨到另一个下载源**（如国内镜像失败不偷偷去 GitHub 官方下）。曾因「Microsoft 失败自动回退 GitHub」踩出第 9 条的污染崩溃，且回退本身违背用户意图。失败提示格式：一行 `[失败]`（红）说明哪个源失败，一行 `[原因]`、一行 `[建议]`（黄）给可操作指引（建议里可写「可改用另一下载源重试」，但**不要自动切换**）；不要堆一连串 `[异常]` / 网络探测诊断。
 
