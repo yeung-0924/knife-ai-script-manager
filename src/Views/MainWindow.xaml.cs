@@ -306,6 +306,8 @@ public partial class MainWindow : Window
         var parentId = _ctxNode is { Kind: ScriptTreeItem.NodeKind.Group } g ? g.EntryId : null;
         var dlg = new AiScriptGenWindow { Owner = this, OwnerViewModel = _vm, ParentGroupId = parentId };
         dlg.ShowDialog();
+        // 接受并写入后：展开父目录并选中新脚本，使它立刻落在用户视野内（取消 / 关闭则不动）
+        RevealScriptInTree(dlg.AcceptedEntryId);
     }
 
     /// <summary>
@@ -388,6 +390,8 @@ public partial class MainWindow : Window
             EditFilePath = item.ResolvedPath
         };
         dlg.ShowDialog();
+        // 接受并写入后：展开其所在目录并选中该脚本，使改动结果立刻落在用户视野内（取消 / 关闭则不动）
+        RevealScriptInTree(dlg.AcceptedEntryId);
     }
 
     /// <summary>右键「删除目录」：二次确认后仅从唯一索引移除该目录条目（含子树），不删任何脚本文件。</summary>
@@ -772,6 +776,87 @@ public partial class MainWindow : Window
         {
             if (obj is T t) return t;
             obj = VisualTreeHelper.GetParent(obj);
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// 「接受并写入」关闭 AI 弹窗后调用：把新创建 / 刚编辑的脚本展开到可见并选中，
+    /// 使结果立刻处于用户视野内（逐级展开其父目录 + 垂直滚动到该行）。
+    /// entryId 为空（未接受 / 取消 / 直接关闭）时什么都不做。
+    /// </summary>
+    private void RevealScriptInTree(string? entryId)
+    {
+        if (string.IsNullOrEmpty(entryId)) return;
+
+        var ancestors = new List<ScriptTreeItem>();
+        var node = FindNodeByEntryId(_vm.ScriptTree, entryId!, ancestors);
+        if (node == null) return;   // 树已按新索引重建，正常路径必然命中
+
+        // 逐级展开途经的目录节点，保证目标项可见
+        foreach (var a in ancestors)
+        {
+            if (a.Kind == ScriptTreeItem.NodeKind.Group)
+                a.IsExpanded = true;
+        }
+
+        SelectAndScrollToNode(node);
+    }
+
+    /// <summary>
+    /// 选中目标节点并滚动到可见。展开父目录后子项容器要等下一次布局才生成，
+    /// 故先强制一次布局；仍未生成时挂到下一轮 Dispatcher（限次数，防死循环）。
+    /// </summary>
+    private void SelectAndScrollToNode(ScriptTreeItem node, int attempt = 0)
+    {
+        ScriptTreeView.UpdateLayout();
+        var tvi = FindTreeViewItemByData(ScriptTreeView, node);
+        if (tvi == null)
+        {
+            if (attempt >= 3) return;   // 防御：IsVirtualizing=False 下不应发生
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded,
+                new Action(() => SelectAndScrollToNode(node, attempt + 1)));
+            return;
+        }
+
+        tvi.IsSelected = true;   // 触发 SelectedItemChanged → 右侧面板载入该脚本
+
+        // 垂直滚动到可见：RequestBringIntoView 已被上面的水平对齐处理器标记 Handled，不会自动纵向滚
+        var sv = FindAncestor<ScrollViewer>(tvi);
+        if (sv == null) return;
+        var top = tvi.TransformToAncestor(sv).Transform(new Point(0, 0)).Y;
+        var bottom = top + tvi.ActualHeight;
+        if (top < 0)
+            sv.ScrollToVerticalOffset(sv.VerticalOffset + top);
+        else if (bottom > sv.ViewportHeight)
+            sv.ScrollToVerticalOffset(sv.VerticalOffset + bottom - sv.ViewportHeight);
+    }
+
+    /// <summary>按条目 id 在树中递归查找节点，途经的祖先（根 → 父）按序填入 ancestors。</summary>
+    private static ScriptTreeItem? FindNodeByEntryId(
+        IEnumerable<ScriptTreeItem> nodes, string entryId, List<ScriptTreeItem> ancestors)
+    {
+        foreach (var n in nodes)
+        {
+            if (string.Equals(n.EntryId, entryId, StringComparison.Ordinal))
+                return n;
+            ancestors.Add(n);
+            var hit = FindNodeByEntryId(n.Children, entryId, ancestors);
+            if (hit != null) return hit;
+            ancestors.RemoveAt(ancestors.Count - 1);
+        }
+        return null;
+    }
+
+    /// <summary>在已生成的容器树中按 DataContext 递归定位 TreeViewItem（程序化选中 / 滚动用）。</summary>
+    private static TreeViewItem? FindTreeViewItemByData(ItemsControl parent, object data)
+    {
+        for (var i = 0; i < parent.Items.Count; i++)
+        {
+            if (parent.ItemContainerGenerator.ContainerFromIndex(i) is not TreeViewItem tvi) continue;
+            if (ReferenceEquals(tvi.DataContext, data)) return tvi;
+            var child = FindTreeViewItemByData(tvi, data);
+            if (child != null) return child;
         }
         return null;
     }

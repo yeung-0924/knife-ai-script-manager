@@ -16,7 +16,8 @@ namespace AIScriptManager.Views;
 /// 生成过程为流式（模型回复实时刷进脚本预览区）；首轮成功后进入多轮对话——描述框清空、
 /// 占位符切换为追问提示，再次「生成」即带着历史上下文迭代改写，对话历史持久化到
 /// cache/{脚本id}/（每次编辑会话一个文件，删除脚本不清缓存）。
-/// 「接受并写入」即结束本次编辑会话：对话状态重置，下次生成重新发起（编辑模式直接关闭窗口）。
+/// 「接受并写入」即结束本次编辑会话：对话状态重置并关闭弹窗（创建 / 编辑两种模式一致），
+/// 宿主主窗口据 <see cref="AcceptedEntryId"/> 展开其父目录并选中该脚本，使结果立刻落在用户视野内。
 /// 一次编辑会话的追问轮数受配置 [ai] max_rounds 限制（默认 0 = 仅首轮生成、不追问；
 /// N = 原始会话 + N 轮追问），达到上限后「生成」禁用，只能接受当前结果或关闭窗口重新发起。
 /// 未配置 AI API 时禁用生成并提示先去「设置 ▸ 编辑配置」。
@@ -37,6 +38,13 @@ public partial class AiScriptGenWindow : Window
 
     /// <summary>编辑模式：脚本文件的完整路径（覆盖写入用）。</summary>
     public string? EditFilePath { get; set; }
+
+    /// <summary>
+    /// 本次「接受并写入」落库的条目 id（创建模式 = 新脚本 id；编辑模式 = 原条目 id）；
+    /// 未接受（取消 / 直接关闭）时为 null。宿主主窗口在弹窗关闭后据此展开父目录并选中该脚本，
+    /// 使新创建 / 刚编辑的脚本立刻处于用户视野内。
+    /// </summary>
+    public string? AcceptedEntryId { get; private set; }
 
     private AiGeneratedScript? _result;
     // 多轮对话状态：首轮成功后保留，之后每次「生成」都作为追问发给 AI；「接受并写入」后重置
@@ -173,6 +181,8 @@ public partial class AiScriptGenWindow : Window
                 File.WriteAllText(EditFilePath!, _result.Content, new UTF8Encoding(false));
                 ScriptIndexStore.UpdateScriptEntry(EditEntryId!, ScriptGenerator.BuildEntry(_result));
                 StatusText.Text = Strings.AiStatusEditDone;
+                // 告知宿主：本次落库的条目 id（同名脚本多，宿主必须按 id 定位并选中它）
+                AcceptedEntryId = EditEntryId;
 
                 // 保存即结束本次编辑会话：重置对话，下次打开/生成重新发起
                 _conversation = null;
@@ -193,8 +203,10 @@ public partial class AiScriptGenWindow : Window
             var path = ScriptGenerator.WriteScriptFile(_result);
             ScriptIndexStore.AddScriptEntry(ParentGroupId, entry);
             StatusText.Text = Strings.AiStatusWriteDone + "：" + _result.Name;
+            // 告知宿主：新脚本的条目 id（同名脚本多，宿主必须按 id 定位并选中它）
+            AcceptedEntryId = entry["id"]?.GetValue<string>();
 
-            // 保存即结束本次编辑会话：重置对话与预览，便于从头创建下一个脚本
+            // 保存即结束本次编辑会话：重置对话与预览
             _conversation = null;
             _scriptId = null;
             _result = null;
@@ -204,11 +216,11 @@ public partial class AiScriptGenWindow : Window
             DescPlaceholder.Text = Strings.AiGenDescPlaceholder;
             PreviewScriptLabel.Text = Strings.AiGenPreviewScript;
             BtnAccept.IsEnabled = false;
-            // 新会话轮次从零起算，重新启用生成（可能刚因达到轮次上限被禁用）
-            BtnGenerate.IsEnabled = AppConfig.AiEnabled;
 
-            // 写入后刷新左侧目录树，使新脚本立即可见
+            // 写入后刷新左侧目录树并关闭弹窗：一次「创建」= 一次完整操作，收尾与编辑模式一致；
+            // 展开父目录 + 选中新脚本由宿主主窗口按 AcceptedEntryId 完成
             OwnerViewModel?.ReloadTree();
+            Close();
         }
         catch (System.Exception ex)
         {
