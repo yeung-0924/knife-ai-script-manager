@@ -505,6 +505,166 @@ public partial class MainWindow : Window
         return null;
     }
 
+    // ---- 目录树拖拽：拖目录 / 脚本改变其显示层级（只改 index.json 结构，不动物理脚本文件）----
+
+    /// <summary>拖拽候选源节点（左键按下时记录）；DoDragDrop 返回后清空。</summary>
+    private ScriptTreeItem? _dragStartNode;
+
+    /// <summary>左键按下时的窗口坐标，用于判定是否越过系统拖拽阈值（避免把普通点击误判成拖拽）。</summary>
+    private Point _dragStartPoint;
+
+    /// <summary>当前被高亮为放置目标的 TreeViewItem（拖拽经过时置，离开/放下时清）。</summary>
+    private TreeViewItem? _dragOverItem;
+
+    /// <summary>左键按下：记录拖拽候选源；真正开始拖拽在 MouseMove 里按位移阈值判定。</summary>
+    private void TreeItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_vm.IsRunning) { _dragStartNode = null; return; }
+        _dragStartNode = (sender as TreeViewItem)?.DataContext as ScriptTreeItem;
+        _dragStartPoint = e.GetPosition(null);
+    }
+
+    /// <summary>鼠标移动：左键按住且位移超过系统阈值时发起拖拽，数据对象携带源条目 id。</summary>
+    private void TreeItem_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (_dragStartNode == null || e.LeftButton != MouseButtonState.Pressed || _vm.IsRunning)
+            return;
+        var diff = e.GetPosition(null) - _dragStartPoint;
+        if (Math.Abs(diff.X) < SystemParameters.MinimumHorizontalDragDistance
+            && Math.Abs(diff.Y) < SystemParameters.MinimumVerticalDragDistance)
+            return;
+        // 根不是可拖条目；无 id 的旧条目也不能拖
+        if (_dragStartNode.Kind == ScriptTreeItem.NodeKind.Root || string.IsNullOrEmpty(_dragStartNode.EntryId))
+            return;
+        if (sender is not TreeViewItem tvi) return;
+
+        var data = new DataObject("ScriptTreeEntryId", _dragStartNode.EntryId!);
+        DragDrop.DoDragDrop(tvi, data, DragDropEffects.Move);
+        // DoDragDrop 阻塞至拖放结束（Drop / 取消），返回后清空候选源
+        _dragStartNode = null;
+    }
+
+    /// <summary>合法性校验：源不能是自身 / 自身子孙；目标只能是目录（放到其下）或脚本（放到其同级）。</summary>
+    private static bool IsValidDropTarget(ScriptTreeItem? src, ScriptTreeItem? target)
+    {
+        if (src == null || target == null) return false;
+        if (ReferenceEquals(src, target)) return false;
+        if (string.IsNullOrEmpty(src.EntryId) || string.IsNullOrEmpty(target.EntryId)) return false;
+        if (target.Kind == ScriptTreeItem.NodeKind.Group)
+            return !(src.Kind == ScriptTreeItem.NodeKind.Group && IsSelfOrDescendant(src, target));
+        return target.Kind == ScriptTreeItem.NodeKind.Script;
+    }
+
+    /// <summary>node 是否等于 ancestor 或位于其子树内（用于禁止把目录拖进自己的子孙）。</summary>
+    private static bool IsSelfOrDescendant(ScriptTreeItem ancestor, ScriptTreeItem node)
+    {
+        if (ReferenceEquals(ancestor, node)) return true;
+        foreach (var c in ancestor.Children)
+            if (IsSelfOrDescendant(c, node)) return true;
+        return false;
+    }
+
+    private void TreeItem_DragOver(object sender, DragEventArgs e)
+    {
+        if (sender is not TreeViewItem tvi) return;
+        var target = tvi.DataContext as ScriptTreeItem;
+        if (_dragStartNode != null && IsValidDropTarget(_dragStartNode, target))
+        {
+            e.Effects = DragDropEffects.Move;
+            HighlightDropTarget(tvi);
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+            ClearDropHighlight();
+        }
+        e.Handled = true;
+    }
+
+    private void TreeItem_DragLeave(object sender, DragEventArgs e)
+    {
+        if (ReferenceEquals(sender, _dragOverItem))
+            ClearDropHighlight();
+    }
+
+    private void TreeItem_Drop(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        ClearDropHighlight();
+        if (sender is not TreeViewItem tvi) return;
+        var target = tvi.DataContext as ScriptTreeItem;
+        if (_dragStartNode == null || !IsValidDropTarget(_dragStartNode, target)) return;
+        // 目录 → 成为其子项；脚本 → 放到该脚本同级（父目录）
+        string? newParentId = target!.Kind == ScriptTreeItem.NodeKind.Group
+            ? target.EntryId
+            : ScriptIndexStore.FindParentId(target.EntryId!);
+        PerformTreeMove(_dragStartNode, newParentId);
+    }
+
+    /// <summary>拖到树面板空白处 = 移到根层级。</summary>
+    private void ScriptTreeView_DragOver(object sender, DragEventArgs e)
+    {
+        var hit = VisualTreeHelper.HitTest(ScriptTreeView, e.GetPosition(ScriptTreeView));
+        if (FindParentTreeViewItem(hit?.VisualHit) != null) return;   // 命中项：交由项级 DragOver 处理
+        if (_dragStartNode != null)
+        {
+            e.Effects = DragDropEffects.Move;
+            ClearDropHighlight();
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+        }
+        e.Handled = true;
+    }
+
+    private void ScriptTreeView_Drop(object sender, DragEventArgs e)
+    {
+        var hit = VisualTreeHelper.HitTest(ScriptTreeView, e.GetPosition(ScriptTreeView));
+        if (FindParentTreeViewItem(hit?.VisualHit) != null) return;   // 命中项：交由项级 Drop 处理
+        e.Handled = true;
+        ClearDropHighlight();
+        if (_dragStartNode == null) return;
+        PerformTreeMove(_dragStartNode, null);
+    }
+
+    /// <summary>执行移动：写 index.json 后整树重建（复用 ReloadTree，展开状态经树状态缓存恢复）。</summary>
+    private void PerformTreeMove(ScriptTreeItem src, string? newParentId)
+    {
+        if (string.IsNullOrEmpty(src.EntryId)) return;
+        try
+        {
+            ScriptIndexStore.MoveEntry(src.EntryId!, newParentId);
+            _vm.ReloadTree();
+        }
+        catch (System.Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, Strings.TitleWindow, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            _dragStartNode = null;
+        }
+    }
+
+    /// <summary>高亮放置目标（项边框变蓝），并清掉上一个高亮。</summary>
+    private void HighlightDropTarget(TreeViewItem tvi)
+    {
+        if (ReferenceEquals(_dragOverItem, tvi)) return;
+        ClearDropHighlight();
+        _dragOverItem = tvi;
+        tvi.BorderThickness = new Thickness(2);
+        tvi.BorderBrush = (Brush)FindResource("BrushPrimary");
+    }
+
+    private void ClearDropHighlight()
+    {
+        if (_dragOverItem == null) return;
+        _dragOverItem.BorderThickness = new Thickness(0);
+        _dragOverItem.ClearValue(Control.BorderBrushProperty);
+        _dragOverItem = null;
+    }
+
     /// <summary>
     /// TreeViewItem 选中后默认会触发 RequestBringIntoView，框架把它对齐到滚动条左边缘；
     /// 超长脚本名（如「网络详情网络详情...」）会被截掉左半，用户看不到关键信息。
