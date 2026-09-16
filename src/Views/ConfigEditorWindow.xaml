@@ -127,7 +127,9 @@
             <TextBlock Text="{x:Static local:Strings.AiConfigSection}"
                        FontWeight="Bold" Margin="0,16,0,8" />
 
-            <!-- API 密钥：PasswordBox（默认隐藏）+ 复选框切换为明文 TextBox -->
+            <!-- API 密钥：PasswordBox（默认隐藏）+ 复选框切换为明文 TextBox。
+                 与其它输入框统一：外层 Border 绘制圆角边框 + 聚焦变蓝高亮（IsKeyboardFocusWithin），
+                 内部 PasswordBox / TextBox 去边框、透明底，由外层 Border 承载框，视觉与其它行一致。 -->
             <Grid Margin="0,0,0,12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="104" />
@@ -139,15 +141,32 @@
                     <CheckBox DockPanel.Dock="Right" x:Name="AiApiKeyReveal"
                               Content="显示" VerticalAlignment="Center" Margin="8,0,0,0"
                               Checked="AiApiKeyReveal_Changed" Unchecked="AiApiKeyReveal_Changed" />
-                    <Grid>
-                        <PasswordBox x:Name="AiApiKeyBox" Height="24" VerticalAlignment="Center"
-                                     PasswordChanged="AiApiKeyBox_PasswordChanged"
-                                     Visibility="{Binding IsChecked, ElementName=AiApiKeyReveal, Converter={x:Static local:InverseBoolToVisibilityConverter.Instance}}" />
-                        <TextBox x:Name="AiApiKeyTextBox" Height="24" VerticalAlignment="Center"
-                                 VerticalContentAlignment="Center"
-                                 TextChanged="AiApiKeyTextBox_TextChanged"
-                                 Visibility="{Binding IsChecked, ElementName=AiApiKeyReveal, Converter={x:Static local:BooleanToVisibilityConverter.Instance}}" />
-                    </Grid>
+                    <Border BorderThickness="1" CornerRadius="4"
+                            Height="24" VerticalAlignment="Center" SnapsToDevicePixels="True"
+                            Background="{DynamicResource BrushPanelBg}">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+                                <Style.Triggers>
+                                    <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                        <Setter Property="BorderBrush" Value="{DynamicResource BrushPrimary}" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Grid>
+                            <PasswordBox x:Name="AiApiKeyBox" VerticalAlignment="Center"
+                                         VerticalContentAlignment="Center" Padding="1,0"
+                                         BorderThickness="0" Background="Transparent"
+                                         PasswordChanged="AiApiKeyBox_PasswordChanged"
+                                         Visibility="{Binding IsChecked, ElementName=AiApiKeyReveal, Converter={x:Static local:InverseBoolToVisibilityConverter.Instance}}" />
+                            <TextBox x:Name="AiApiKeyTextBox" VerticalAlignment="Center"
+                                     VerticalContentAlignment="Center" Padding="1,0"
+                                     BorderThickness="0" Background="Transparent"
+                                     TextChanged="AiApiKeyTextBox_TextChanged"
+                                     Visibility="{Binding IsChecked, ElementName=AiApiKeyReveal, Converter={x:Static local:BooleanToVisibilityConverter.Instance}}" />
+                        </Grid>
+                    </Border>
                 </DockPanel>
             </Grid>
 
