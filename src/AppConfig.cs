@@ -74,6 +74,9 @@ public static class AppConfig
     /// 运行时安装目录（来自配置的 runtime_dir，默认 exe 同级 runtime；注入环境变量 SCRIPT_MANAGER_RUNTIME 供脚本引用）。
     /// 安装类脚本（Install-*.ps1）在未指定安装目录时以此作为默认目标；目录不存在时由脚本自行创建。
     /// 该值每次启动脚本时由 RuntimeResolver 现读，配置改动保存即生效，无需重启。
+    /// 另：自 2026-09-16 起，该目录同时是可执行文件「自动检测」的首选查找位置
+    /// （见 RuntimeConfig.FindInRuntimeDir），优先级高于系统 PATH——
+    /// 把免安装运行时（如 JDK）解压到此处即可被优先采用。
     /// </summary>
     public static string RuntimeDir => ResolveDir("script", "runtime_dir", "runtime");
 

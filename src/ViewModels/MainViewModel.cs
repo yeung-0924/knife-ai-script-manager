@@ -1245,7 +1245,8 @@ public class MainViewModel : ViewModelBase
 
     #region runtime 选择（按脚本语言校验/带出可执行文件）
     /// <summary>
-    /// 校验当前脚本语言的可执行文件：先读已保存配置，缺失则尝试自动检测（PATH / 系统目录）。
+    /// 校验当前脚本语言的可执行文件：先读已保存配置，缺失则尝试自动检测
+    /// （免安装运行时目录 runtime_dir → 系统 PATH → Windows 系统目录）。
     /// 结果驱动顶部只读输入框（SelectedExePath）；未配置时 SelectedExePath 为空并展示占位提示。
     /// </summary>
     private void RefreshRuntimeStatus()
@@ -1352,7 +1353,8 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 「自动」按钮：忽略用户当前选择，重新按环境变量/系统目录自动检测该语言的可执行文件，
+    /// 「自动」按钮：忽略用户当前选择，重新按「免安装运行时目录（runtime_dir）→ 系统 PATH → 系统目录」
+    /// 的顺序自动检测该语言的可执行文件，
     /// 覆盖缓存并回填，用于纠正用户错选后「不知道本来该选哪个」的情况。
     /// 不缓存版本号 —— 仍由 RefreshRuntimeStatus 实时探测。
     /// </summary>

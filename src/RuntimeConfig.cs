@@ -8,7 +8,9 @@ namespace AIScriptManager;
 
 /// <summary>
 /// 按 lang 维护运行程序路径（每种语言一条），持久化到 cache/runtimes.json（IO 见 RuntimeConfigCache）。
-/// 缺失的路径由 <see cref="EnsureAutoDetected"/> 在首次启动时尝试自动检测（cmd/powershell 必有；其他按需）。
+/// 缺失的路径由 <see cref="EnsureAutoDetected"/> 在首次启动时尝试自动检测。
+/// 自动检测优先级（2026-09-16 起）：免安装运行时目录（runtime_dir）→ 系统 PATH → Windows 系统目录兜底；
+/// 即「绿色版自带运行时」优先于机器上安装的版本，见 <see cref="TryDetect"/>。
 /// </summary>
 public static class RuntimeConfig
 {
@@ -35,7 +37,10 @@ public static class RuntimeConfig
     /// <summary>取某个 lang 的当前路径（可能为 null：未配置或自动检测失败）。</summary>
     public static string? Get(string lang) => RuntimeConfigCache.Load().GetValueOrDefault(lang);
 
-    /// <summary>仅尝试自动检测某语言可执行文件（不落盘），找到返回完整路径，否则 null。供 UI 校验时即时带出。</summary>
+    /// <summary>
+    /// 仅尝试自动检测某语言可执行文件（不落盘），找到返回完整路径，否则 null。供 UI 校验时即时带出。
+    /// 顺序：免安装运行时目录（runtime_dir）→ 系统 PATH → Windows 系统目录。
+    /// </summary>
     public static string? Detect(string lang)
     {
         if (string.IsNullOrWhiteSpace(lang)) return null;
@@ -61,21 +66,98 @@ public static class RuntimeConfig
         [ScriptLangs.Rust]       = new[] { "rustc.exe", "cargo.exe" }
     };
 
-    /// <summary>优先用 PATH 找，再回退到 Windows 系统目录（System32 / SystemWOW64），都找不到返回 null。</summary>
+    /// <summary>
+    /// 自动检测顺序（2026-09-16 调整）：① 免安装运行时目录（配置的 runtime_dir，留空则 exe 同级 runtime）
+    /// ② 系统环境变量 PATH ③ Windows 系统目录（System32 / SysWOW64）兜底。都找不到返回 null。
+    /// 免安装目录置于首位，是为了让「绿色版自带运行时」自足：把 JDK 解压进 runtime 即被优先采用，
+    /// 不必依赖机器上安装的版本。
+    /// </summary>
     private static string? TryDetect(string[] candidates)
     {
+        // 1) 免安装运行时目录（优先于系统环境）
+        var viaRuntimeDir = FindInRuntimeDir(candidates);
+        if (viaRuntimeDir != null) return viaRuntimeDir;
+
         foreach (var name in candidates)
         {
-            // 1) PATH 解析（兼容普通环境）
+            // 2) PATH 解析（兼容普通环境）
             var viaPath = FindOnPath(name);
             if (viaPath != null) return viaPath;
-            // 2) Windows 系统目录兜底（cmd.exe / powershell.exe 几乎一定在 System32）
+            // 3) Windows 系统目录兜底（cmd.exe / powershell.exe 几乎一定在 System32）
             var sysRoot = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
             var systemDir = Path.Combine(sysRoot, "System32");
             var sysFull = Path.Combine(systemDir, name);
             if (File.Exists(sysFull)) return sysFull;
             var wowFull = Path.Combine(sysRoot, "SysWOW64", name);
             if (File.Exists(wowFull)) return wowFull;
+        }
+        return null;
+    }
+
+    /// <summary>免安装运行时目录下的最大向下搜索层数（层数再深说明布局非预期，不再浪费 IO）。</summary>
+    private const int RuntimeDirMaxDepth = 4;
+
+    /// <summary>
+    /// 在免安装运行时目录（<see cref="AppConfig.RuntimeDir"/>：配置的 runtime_dir，留空则 exe 同级 runtime）
+    /// 下查找该语言的候选可执行文件。命中顺序「浅层优先」，避免对大目录树做全量遍历：
+    ///   ① runtime\&lt;exe&gt; ｜ runtime\bin\&lt;exe&gt;（整个运行时或 bin 内容直接摊在根）
+    ///   ② 逐层向下（BFS，最多 <see cref="RuntimeDirMaxDepth"/> 层）：&lt;子目录&gt;\bin\&lt;exe&gt; ｜ &lt;子目录&gt;\&lt;exe&gt;
+    /// 覆盖 runtime\jdk-25\bin\java.exe、runtime\java\bin\java.exe 等常见绿色版布局。
+    /// 目录不存在 / 无匹配 / 访问异常返回 null（交由后续 PATH 检测）。
+    /// </summary>
+    private static string? FindInRuntimeDir(string[] candidates)
+    {
+        string root;
+        try
+        {
+            root = AppConfig.RuntimeDir;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[RuntimeConfig] 读取 runtime_dir 失败：{ex.Message}");
+            return null;
+        }
+        if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root)) return null;
+
+        // ① runtime 根 / runtime\bin
+        foreach (var name in candidates)
+        {
+            var direct = Path.Combine(root, name);
+            if (File.Exists(direct)) return Path.GetFullPath(direct);
+            var inBin = Path.Combine(root, "bin", name);
+            if (File.Exists(inBin)) return Path.GetFullPath(inBin);
+        }
+
+        // ② BFS 逐层向下（浅层优先，命中即返回）
+        var queue = new Queue<(string Dir, int Depth)>();
+        queue.Enqueue((root, 0));
+        while (queue.Count > 0)
+        {
+            var (dir, depth) = queue.Dequeue();
+            if (depth >= RuntimeDirMaxDepth) continue;
+
+            string[] subs;
+            try
+            {
+                subs = Directory.GetDirectories(dir);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[RuntimeConfig] 枚举 runtime 子目录失败 {dir}：{ex.Message}");
+                continue;
+            }
+
+            foreach (var sub in subs)
+            {
+                foreach (var name in candidates)
+                {
+                    var inBin = Path.Combine(sub, "bin", name);
+                    if (File.Exists(inBin)) return Path.GetFullPath(inBin);
+                    var flat = Path.Combine(sub, name);
+                    if (File.Exists(flat)) return Path.GetFullPath(flat);
+                }
+                queue.Enqueue((sub, depth + 1));
+            }
         }
         return null;
     }

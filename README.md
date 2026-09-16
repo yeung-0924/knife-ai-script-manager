@@ -27,12 +27,16 @@ knife-ai-script-manager/
 |---|---|---|
 | `script_index_file` | 脚本索引文件（指向 `index.json`）；「文件▸打开」与「设置▸编辑配置」写同一键 | `script\index.json` |
 | `lib_dir` | 第三方依赖目录（注入环境变量 `SCRIPT_MANAGER_LIB`） | `lib` |
-| `runtime_dir` | 运行时安装目录（注入环境变量 `SCRIPT_MANAGER_RUNTIME`） | `runtime` |
+| `runtime_dir` | 运行时安装目录（注入环境变量 `SCRIPT_MANAGER_RUNTIME`）；也是可执行文件自动检测的**首选查找位置** | `runtime` |
 | `cache_dir` | 缓存目录 | `cache` |
 | `log_dir` | 日志目录（如 `error.log`） | `log` |
 | `default_timeout` | 脚本默认执行超时（秒，0/留空=不限制） | `0` |
 
 路径规则：相对路径相对 exe 目录解析；绝对路径（含 UNC 如 `\\Mac\Home\...`）直接使用。仓库提供了 `config.ini.example` 模板（含注释），复制为 `config/config.ini` 即可生效；修改后重启程序生效。
+
+> 可执行文件的自动检测顺序为：`runtime_dir` 目录（免安装运行时）→ 系统环境变量 `PATH` → Windows 系统目录。
+> 因此把绿色版运行时（如解压好的 JDK）放进 `runtime_dir` 即可被优先采用，不必依赖机器上已安装的版本；
+> 目录内支持 `runtime\<exe>`、`runtime\bin\<exe>`、`runtime\<子目录>\bin\<exe>`（如 `runtime\jdk-25\bin\java.exe`）等布局。
 
 ## 脚本来源（单一来源）
 

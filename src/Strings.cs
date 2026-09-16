@@ -31,7 +31,7 @@ public static class Strings
     public const string BtnRun = "执行";
     public const string BtnStop = "停止";
     public const string BtnAuto = "自动检测";
-    public const string BtnAutoToolTip = "自动检测环境变量中的可执行文件";
+    public const string BtnAutoToolTip = "自动检测：优先使用运行时目录（runtime），其次系统环境变量 PATH";
     public const string BtnExpandAll = "展开全部";
     public const string BtnCollapseAll = "收起全部";
         public const string BtnExpandCollapseToolTip = "展开/收起全部目录";
@@ -152,15 +152,15 @@ public static class Strings
     // StatusReloaded / StatusReloadedEnv：原「刷新」按钮提示，刷新功能下线后已废弃（保留作清理记录）。
     public const string StatusLogCleared = "已清空执行日志";
     public const string StatusParamsReset = "已重置为默认值";
-    public const string StatusRuntimeAutoSet = "已按环境变量自动获取可执行文件";
+    public const string StatusRuntimeAutoSet = "已自动获取可执行文件（运行时目录或环境变量）";
     // 「打开」脚本索引文件的反馈（状态栏轻提示，不弹窗）：成功加载并记住 / 所选文件非有效脚本索引
     public const string StatusOpenScriptFileDone = "已打开脚本文件（已记住，重启后自动加载）";
     public const string StatusOpenScriptFileInvalid = "所选文件不是有效的脚本索引（index.json）";
-    public const string StatusRuntimeAutoFail = "环境中未检测到该语言的可执行文件，请配置环境变量或自行选择";
+    public const string StatusRuntimeAutoFail = "运行时目录与环境变量中均未检测到该语言的可执行文件，请配置 runtime 目录或自行选择";
     #endregion
 
     #region 占位提示
-    public const string RuntimePlaceholderMissing = "未检测到有效的可执行文件，请配置环境变量或自行选择";
+    public const string RuntimePlaceholderMissing = "未检测到有效的可执行文件，请配置 runtime 目录或环境变量，或自行选择";
     #endregion
 
     #region 可执行文件路径输入框 ToolTip

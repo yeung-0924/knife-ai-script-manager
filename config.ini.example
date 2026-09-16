@@ -12,6 +12,7 @@
 ; 第三方依赖目录（默认：exe 同级 lib；注入环境变量 SCRIPT_MANAGER_LIB 供脚本引用）
 ;lib_dir =
 ; 运行时安装目录（默认：exe 同级 runtime；注入环境变量 SCRIPT_MANAGER_RUNTIME 供安装脚本默认使用）
+; 该目录同时是可执行文件自动检测的首选位置（优先于系统 PATH）：把免安装运行时解压到此处即被优先采用。
 ;runtime_dir =
 ; 缓存文件目录（默认：exe 同级 cache）
 ;cache_dir =
