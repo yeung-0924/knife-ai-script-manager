@@ -47,6 +47,6 @@
   <!-- 文件夹变色资源：fColors.icl 图标库 + desktop.template0~11.ini 共 12 份模板（源码在 assets/folder-icons/），
        由 build.ps1 随构建复制到 exe 同级的 config\ 并设为 Hidden（交付目录不再额外留 assets\），
        运行期由 src/FolderCustomizer.cs 从 ExeDir\config\ 读取并生成各目录的 desktop.ini。
-       图标分配：config=template0；script/lib=template8；log/cache/runtime=template1；子目录不给图标。 -->
+       图标分配：全部标准目录（config/log/cache/history/runtime/lib/script）统一用 template6；子目录不给图标。 -->
 
 </Project>

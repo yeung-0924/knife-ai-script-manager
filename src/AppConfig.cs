@@ -16,6 +16,7 @@ namespace AIScriptManager;
 ///   runtime_dir = 运行时安装目录（默认 runtime；注入环境变量 SCRIPT_MANAGER_RUNTIME，供安装脚本默认使用）
 ///   cache_dir  = 缓存文件目录（默认 cache）
 ///   log_dir    = 日志文件目录（默认 log，如 error.log）
+///   history_dir = 脚本变更历史目录（默认 history；每次保存脚本后按脚本 id 分目录留一份副本）
 ///   default_timeout = 脚本默认执行超时（秒，0/留空=不限制）
 /// 路径规则：留空/被注释则使用默认值；填相对路径则相对 exe 目录解析；填绝对路径（含 UNC 如 \\Mac\Home\...）则直接使用。
 /// script_index_file 是「文件▸打开」与「设置▸编辑配置▸脚本索引文件」的唯一共同出口，二者写同一键、效果一致。
@@ -90,6 +91,14 @@ public static class AppConfig
     public static string LogDir => ResolveDir("script", "log_dir", "log");
 
     /// <summary>
+    /// 脚本变更历史目录（来自配置的 history_dir，默认 exe 同级 history）。
+    /// 每次「接受并写入」（新增 / 编辑脚本）成功后，由 <see cref="ScriptHistory"/> 在此留一份脚本副本：
+    /// 按脚本 id 分目录、以保存时刻（yyyyMMdd-HHmmss）命名，便于日后回退；删除脚本时对应目录一并删除。
+    /// 改动本项后旧历史留在原目录<b>不迁移</b>（与 log_dir 同为「改配置不搬旧数据」的语义），下次保存起写入新目录。
+    /// </summary>
+    public static string HistoryDir => ResolveDir("script", "history_dir", "history");
+
+    /// <summary>
     /// 各 [script] 目录/文件配置项「未自定义时」对应的默认绝对路径（相对 exe 目录解析），
     /// 供配置编辑弹窗的占位提示显示真实路径——随软件所在目录自动变化
     /// （如把软件从 D:\Workspace\... 移到 E:\Workspace\...，占位符即显示 E:\...\lib）。
@@ -102,6 +111,7 @@ public static class AppConfig
         "runtime_dir" => RuntimeDir,
         "cache_dir" => CacheDir,
         "log_dir" => LogDir,
+        "history_dir" => HistoryDir,
         _ => "",
     };
 

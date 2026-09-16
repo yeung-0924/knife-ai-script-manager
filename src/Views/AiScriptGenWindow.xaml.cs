@@ -16,6 +16,8 @@ namespace AIScriptManager.Views;
 /// 生成过程为流式（模型回复实时刷进脚本预览区）；首轮成功后进入多轮对话——描述框清空、
 /// 占位符切换为追问提示，再次「生成」即带着历史上下文迭代改写，对话历史持久化到
 /// cache/{脚本id}/（每次编辑会话一个文件，删除脚本不清缓存）。
+/// 「接受并写入」落库成功后，由 <see cref="ScriptHistory"/> 在 history/{脚本id}/ 留一份内容副本（时间戳命名），
+/// 供日后回退（本阶段只记录，不提供历史查看 / 一键回退）。
 /// 「接受并写入」即结束本次编辑会话：对话状态重置并关闭弹窗（创建 / 编辑两种模式一致），
 /// 宿主主窗口据 <see cref="AcceptedEntryId"/> 展开其父目录并选中该脚本，使结果立刻落在用户视野内。
 /// 一次编辑会话的追问轮数受配置 [ai] max_rounds 限制（默认 0 = 仅首轮生成、不追问；
@@ -180,6 +182,9 @@ public partial class AiScriptGenWindow : Window
                 // 覆盖原脚本文件（位置不变，文件名即 id、无扩展名），并按条目 id 更新索引条目（改语言只改 JSON 的 lang 字段）
                 File.WriteAllText(EditFilePath!, _result.Content, new UTF8Encoding(false));
                 ScriptIndexStore.UpdateScriptEntry(EditEntryId!, ScriptGenerator.BuildEntry(_result));
+                // 落库成功后留一份历史副本（history\{脚本id}\{时间戳}），供日后回退；
+                // 放在索引写入之后，使保存失败（索引异常等）不产生历史
+                ScriptHistory.Snapshot(EditEntryId, EditFilePath);
                 StatusText.Text = Strings.AiStatusEditDone;
                 // 告知宿主：本次落库的条目 id（同名脚本多，宿主必须按 id 定位并选中它）
                 AcceptedEntryId = EditEntryId;
@@ -202,6 +207,9 @@ public partial class AiScriptGenWindow : Window
             var entry = ScriptGenerator.BuildEntry(_result);
             var path = ScriptGenerator.WriteScriptFile(_result);
             ScriptIndexStore.AddScriptEntry(ParentGroupId, entry);
+            // 落库成功后留一份历史副本（history\{新脚本id}\{时间戳}），供日后回退；
+            // 必须在 AddScriptEntry 之后：同级重名等失败时不留历史，与「保存未成功」语义一致
+            ScriptHistory.Snapshot(entry["id"]?.GetValue<string>(), path);
             StatusText.Text = Strings.AiStatusWriteDone + "：" + _result.Name;
             // 告知宿主：新脚本的条目 id（同名脚本多，宿主必须按 id 定位并选中它）
             AcceptedEntryId = entry["id"]?.GetValue<string>();

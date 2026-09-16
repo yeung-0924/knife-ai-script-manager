@@ -25,22 +25,18 @@ namespace AIScriptManager;
 /// 与 Windows 原生 desktop.ini 的写法一致），写出为该目录的 desktop.ini（UTF-16 LE+BOM + Hidden+System）。
 /// </para>
 /// <para>
-/// 图标分配（按目录性质分三档，序号对应 fColors.icl 内图标序号）：
-/// <list type="bullet">
-///   <item>index 0（template0）—— <c>config</c>：程序自管的配置目录，图标库就放在这里</item>
-///   <item>index 8（template8）—— <c>script</c>、<c>lib</c>：用户创建/维护脚本需要看护的目录</item>
-///   <item>index 1（template1）—— <c>log</c>、<c>cache</c>、<c>runtime</c>：程序自动生成的系统目录</item>
-/// </list>
+/// 图标分配：<b>全部标准目录统一使用 index 6</b>（template6，序号对应 fColors.icl 内的图标序号）。
+/// 原先按目录性质分三档（config=0 / script·lib=8 / log·cache·runtime=1），
+/// 2026-09-16 应暮云要求统一为 6，使交付目录里的各文件夹样式一致；
+/// 日后若要再分化，只需改下方 <c>IconIndex</c> 常量（模板名由序号推导，无需改文件名或映射表）。
 /// 仅处理上述标准目录本身，<b>不递归子目录</b>（子目录不给图标）。
 /// </para>
 /// <para>任何异常均被吞掉并记调试日志，绝不影响主程序启动。</para>
 /// </summary>
 public static class FolderCustomizer
 {
-    // 图标序号：与 F:\!config 的 templateN 一一对应
-    private const int IconIndexConfig = 0; // config（template0，图标库所在目录）
-    private const int IconIndexUser = 8;   // script / lib（template8，用户维护的目录）
-    private const int IconIndexSystem = 1; // log / cache / runtime（template1，系统自动生成目录）
+    // 图标序号（全局统一值）：与 F:\!config 的 templateN 一一对应，6 = template6
+    private const int IconIndex = 6;
 
     // 资源在 exe 同级 config\ 下的位置（由 build.ps1 从 assets/ 复制而来并设为 Hidden）
     private const string ResDir = "config";
@@ -57,16 +53,17 @@ public static class FolderCustomizer
     // 模板文件名统一为 desktop.template{N}.ini（N=0~11，与 F:\!config\templateN 对应）
     private static string TemplateFile(int iconIndex) => $"desktop.template{iconIndex}.ini";
 
-    // 各标准目录 -> (目录, 图标序号, 悬浮说明 InfoTip)。仅标准目录本身，不含子目录。
-    // 说明文字刻意区分"用户维护"与"程序生成"，让用户一眼知道哪些能改、哪些能删。
-    private static readonly (string Dir, int Index, string Tip)[] StandardDirs =
+    // 各标准目录 -> (目录, 悬浮说明 InfoTip)。图标序号已全局统一（见 IconIndex），故不再逐项携带。
+    // 仅标准目录本身，不含子目录；说明文字刻意区分"用户维护"与"程序生成"，让用户一眼知道哪些能改、哪些能删。
+    private static readonly (string Dir, string Tip)[] StandardDirs =
     {
-        (AppConfig.ConfigDir,   IconIndexConfig, "程序配置目录：config.ini 在这里，可编辑修改"),
-        (AppConfig.LogDir,      IconIndexSystem, "运行日志目录：程序自动生成，可安全删除"),
-        (AppConfig.CacheDir,    IconIndexSystem, "缓存目录：程序自动生成，可安全删除"),
-        (AppConfig.RuntimeDir,  IconIndexSystem, "脚本运行时目录：程序自动生成，勿手动改动"),
-        (AppConfig.LibDir,      IconIndexUser,   "依赖库目录：脚本运行所需依赖，按语言分子目录"),
-        (AppConfig.ScriptDir,   IconIndexUser,   "脚本目录：你的脚本都在这里，可自由增删改"),
+        (AppConfig.ConfigDir,   "程序配置目录：config.ini 在这里，可编辑修改"),
+        (AppConfig.LogDir,      "运行日志目录：程序自动生成，可安全删除"),
+        (AppConfig.CacheDir,    "缓存目录：程序自动生成，可安全删除"),
+        (AppConfig.HistoryDir,  "脚本历史目录：每次保存脚本自动留一份副本，可安全删除"),
+        (AppConfig.RuntimeDir,  "脚本运行时目录：程序自动生成，勿手动改动"),
+        (AppConfig.LibDir,      "依赖库目录：脚本运行所需依赖，按语言分子目录"),
+        (AppConfig.ScriptDir,   "脚本目录：你的脚本都在这里，可自由增删改"),
     };
 
     /// <summary>为全部标准目录套用对应颜色样式。失败仅记调试日志，绝不抛异常影响启动。</summary>
@@ -80,8 +77,8 @@ public static class FolderCustomizer
                 return;
             }
             EnsureIconLibHidden();
-            foreach (var (dir, idx, tip) in StandardDirs)
-                Ensure(dir, idx, tip);
+            foreach (var (dir, tip) in StandardDirs)
+                Ensure(dir, tip);
         }
         catch (Exception ex)
         {
@@ -89,13 +86,13 @@ public static class FolderCustomizer
         }
     }
 
-    private static void Ensure(string dir, int iconIndex, string infoTip)
+    private static void Ensure(string dir, string infoTip)
     {
         if (string.IsNullOrWhiteSpace(dir)) return;
         try
         {
             Directory.CreateDirectory(dir);
-            WriteDesktopIni(dir, iconIndex, infoTip);
+            WriteDesktopIni(dir, infoTip);
 
             // 文件夹加 System 属性，使内部 desktop.ini 生效（仅置 System；不改 ReadOnly，避免影响子文件写入）
             var dirAttr = File.GetAttributes(dir);
@@ -108,7 +105,7 @@ public static class FolderCustomizer
         }
     }
 
-    private static void WriteDesktopIni(string dir, int iconIndex, string infoTip)
+    private static void WriteDesktopIni(string dir, string infoTip)
     {
         var iconLib = Path.Combine(ExeDir, ResDir, IconLibName);
         // 从目标目录指向 exe 同级 config\fColors.icl 的相对路径：
@@ -116,13 +113,13 @@ public static class FolderCustomizer
         var rel = Path.GetRelativePath(dir, iconLib).Replace('/', '\\');
         if (!rel.StartsWith(".")) rel = ".\\" + rel;
 
-        var tplPath = Path.Combine(TemplatesDir, TemplateFile(iconIndex));
+        var tplPath = Path.Combine(TemplatesDir, TemplateFile(IconIndex));
         string template;
         if (File.Exists(tplPath))
             template = ReadTemplateText(tplPath);
         else
-            // 模板缺失时退化：用当前目录序号生成最小可用模板（含占位符，供下方替换）
-            template = $"[.ShellClassInfo]\r\nIconFile={IconLibPlaceholder}\r\nIconIndex={iconIndex}\r\n";
+            // 模板缺失时退化：用统一序号生成最小可用模板（含占位符，供下方替换）
+            template = $"[.ShellClassInfo]\r\nIconFile={IconLibPlaceholder}\r\nIconIndex={IconIndex}\r\n";
 
         var content = template.Replace(IconLibPlaceholder, rel);
         // 悬浮说明（InfoTip）：按目录性质给提示，让用户一眼知道哪些能改、哪些能删。

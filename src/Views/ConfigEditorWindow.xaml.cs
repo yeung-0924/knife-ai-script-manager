@@ -51,6 +51,7 @@ public partial class ConfigEditorWindow : Window
         _rows.Add(MakeRow("runtime_dir", "运行时安装目录", "folder", "runtime"));
         _rows.Add(MakeRow("cache_dir", "缓存目录", "folder", "cache"));
         _rows.Add(MakeRow("log_dir", "日志目录", "folder", "log"));
+        _rows.Add(MakeRow("history_dir", "历史记录目录", "folder", "history"));
         Rows.ItemsSource = _rows;
 
         // 超时同理：留空或显式写 0 都表示「不限制」，统一显示为空白 + 占位符「0（不限制）」
@@ -130,7 +131,7 @@ public partial class ConfigEditorWindow : Window
     /// <summary>
     /// 配置落盘并刷新内存后，使「需即时切换」的项无需重启即生效：
     /// ① cache_dir 改动 → <see cref="CacheStore.Relocate"/> 把旧缓存内容迁到新目录并切换 CacheStore.CacheRoot；
-    /// ② 标准目录（config/log/cache/runtime/lib/script）重新套用彩色文件夹图标，使新目录立即获得图标、
+    /// ② 标准目录（config/log/cache/history/runtime/lib/script）重新套用彩色文件夹图标，使新目录立即获得图标、
     ///    旧目录的残留图标在下一次打开资源管理器时被覆盖（旧缓存目录已被 Relocate 清空，无碍）。
     /// 两者均自带异常吞没与调试日志，绝不抛出影响主流程。
     /// </summary>

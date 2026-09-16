@@ -415,7 +415,7 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>右键「删除脚本」：二次确认后删除索引条目与脚本文件（仅限 script 目录内，防路径穿越）。</summary>
+    /// <summary>右键「删除脚本」：二次确认后删除索引条目、脚本文件（仅限 script 目录内，防路径穿越）及其历史记录目录。</summary>
     private void TreeDeleteScript_Click(object sender, RoutedEventArgs e)
     {
         if (_ctxNode is not { Kind: ScriptTreeItem.NodeKind.Script, Item: not null } node)
@@ -436,6 +436,10 @@ public partial class MainWindow : Window
             var scriptDir = System.IO.Path.TrimEndingDirectorySeparator(ConfigLoader.ScriptDir);
             if (File.Exists(filePath) && filePath.StartsWith(scriptDir, StringComparison.OrdinalIgnoreCase))
                 File.Delete(filePath);
+
+            // 同步删除该脚本的历史记录目录（history\{脚本id}\），避免留下无主历史；
+            // 失败仅记调试日志，不影响删除主流程（ScriptHistory 内部已吞异常）
+            ScriptHistory.DeleteFor(node.EntryId!);
 
             _vm.ReloadTree();
         }

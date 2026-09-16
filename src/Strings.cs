@@ -98,7 +98,7 @@ public static class Strings
     public const string TreeMenuDeleteScript = "删除脚本";
     // 二次确认文案（{0} = 节点名）
     public const string TreeDeleteDirConfirm = "确定删除目录「{0}」吗？\n\n仅从索引中移除该目录及其下全部条目，不删除任何脚本文件。";
-    public const string TreeDeleteScriptConfirm = "确定删除脚本「{0}」吗？\n\n将同时删除索引条目与脚本文件，此操作不可恢复。";
+    public const string TreeDeleteScriptConfirm = "确定删除脚本「{0}」吗？\n\n将同时删除索引条目、脚本文件与其历史记录，此操作不可恢复。";
     public const string TreeDeleteDone = "已删除：{0}";
     public const string TreeDeleteFail = "删除失败：{0}";
     #endregion
