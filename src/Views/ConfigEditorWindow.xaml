@@ -156,13 +156,11 @@
                         </Border.Style>
                         <Grid>
                             <PasswordBox x:Name="AiApiKeyBox" VerticalAlignment="Center"
-                                         VerticalContentAlignment="Center" Padding="1,0"
-                                         BorderThickness="0" Background="Transparent"
+                                         Style="{StaticResource ClearablePasswordBoxInline}"
                                          PasswordChanged="AiApiKeyBox_PasswordChanged"
                                          Visibility="{Binding IsChecked, ElementName=AiApiKeyReveal, Converter={x:Static local:InverseBoolToVisibilityConverter.Instance}}" />
                             <TextBox x:Name="AiApiKeyTextBox" VerticalAlignment="Center"
-                                     VerticalContentAlignment="Center" Padding="1,0"
-                                     BorderThickness="0" Background="Transparent"
+                                     Style="{StaticResource ClearableTextBoxInline}"
                                      TextChanged="AiApiKeyTextBox_TextChanged"
                                      Visibility="{Binding IsChecked, ElementName=AiApiKeyReveal, Converter={x:Static local:BooleanToVisibilityConverter.Instance}}" />
                         </Grid>

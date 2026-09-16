@@ -261,6 +261,72 @@
         </Setter>
     </Style>
 
+    <!-- 密码框基础样式（与 BaseTextBox 对称：24px、圆角、聚焦变蓝、悬浮边框、禁用态）。
+         用于需要独立圆角框的密码输入场景；若嵌在外部 Border 内（如配置编辑器 API 密钥框），
+         改用下方的 ClearablePasswordBoxInline，由外层 Border 绘制边框/背景。 -->
+    <Style x:Key="BasePasswordBox" TargetType="PasswordBox">
+        <Setter Property="Height" Value="24" />
+        <Setter Property="MinHeight" Value="24" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <!-- 左内边距 1：文本真实落点 = Padding + 密文宿主固有内缩(约3px) = 视觉 4px，
+             与各处占位符 TextBlock 的 Margin(4,0,0,0) 对齐。 -->
+        <Setter Property="Padding" Value="1,0" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Background" Value="{DynamicResource BrushPanelBg}" />
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CaretBrush" Value="{DynamicResource BrushCaret}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource BrushSelection}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="PasswordBox">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4"
+                            SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      Focusable="False" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BrushBorderHover}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BrushPrimary}" />
+                            <Setter TargetName="Bd" Property="BorderThickness" Value="1.5" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BrushDisabledBg}" />
+                            <Setter Property="Foreground" Value="{DynamicResource BrushDisabledFg}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- 密码框内嵌样式（与 ClearableTextBoxInline 对称）：输入框嵌在外部 Border 里时，
+         自身不画边框/背景（由外层绘制），只保留 PART_ContentHost 承载密文；
+         圆角与聚焦高亮交给外层 Border（见各调用处 IsKeyboardFocusWithin 触发器）。 -->
+    <Style x:Key="ClearablePasswordBoxInline" TargetType="PasswordBox" BasedOn="{StaticResource BasePasswordBox}">
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="PasswordBox">
+                    <ScrollViewer x:Name="PART_ContentHost"
+                                  VerticalAlignment="Center"
+                                  Focusable="False" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- 黄色按钮（如重置参数）；其余与 BaseButton 一致，仅配色不同 -->
     <Style x:Key="BaseButtonYellow" TargetType="Button" BasedOn="{StaticResource BaseButton}">
         <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
