@@ -895,8 +895,12 @@ public class MainViewModel : ViewModelBase
                 return sb.ToString();
 
             case ScriptLangs.PowerShell:
+            // pwsh（PowerShell 7）与 Windows PowerShell 5.1 是【两个语言】，但字符串字面量规则
+            // 完全相同（反引号转义、反斜杠为字面量），此处必须合并处理——否则 pwsh 会掉进下面
+            // 的通用兜底，把参数里的 Windows 路径反斜杠翻倍（C:\Temp 写成 C:\\Temp），路径失效。
+            case ScriptLangs.Pwsh:
                 // PowerShell 双引号字符串：反引号 ` 为转义符，需转义它自身与双引号；
-                // 反斜杠无需转义（PS 不把 \ 当转义）。
+                // 反斜杠无需转义（PS 不把 \ 当转义）。5.1 与 7 规则一致，已实测确认。
                 return value
                     .Replace("`", "``")
                     .Replace("\"", "`\"");

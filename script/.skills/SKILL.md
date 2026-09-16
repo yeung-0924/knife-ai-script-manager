@@ -29,6 +29,16 @@ AIScriptManager **只**加载 `script/index.json`（嵌套数组，用 `children
 | `admin` | 否 | `true` 时以管理员身份运行 |
 | `hide` | 否 | `true` 时不在界面显示 |
 | `params` | 否 | 参数数组，见下文 |
+> ⚠️ **`lang` 是第一准则，且 `powershell` 与 `pwsh` 是两个完全不同的语言，不可混用**：
+>
+> - `powershell` ≡ Windows PowerShell **5.1** —— 只用 `powershell.exe`，探针要求主版本号 ≤5。
+> - `pwsh` ≡ PowerShell **6/7** —— 只用 `pwsh.exe`，探针要求主版本号 ≥6。
+>
+> 两者各自只认同名的可执行文件、**绝不互相回退**（宁可标红不可用，也不降级到 5.1 / 不借用 PS7）。
+> **用户需要 PowerShell 7 特性时，`lang` 必须写 `pwsh`**：三元运算符 `? :`、空合并 `??`、`&&` / `||` 管道链、
+> `ForEach-Object -Parallel`、`Get-Error`、`Test-Json` 等 5.1 不支持的写法都属此类；
+> 写成 `powershell` 会让脚本被绑到 5.1 上运行并报语法错误。反之，只用基础语法的脚本一律写 `powershell`
+> 最稳妥（5.1 在所有 Windows 上内置，PS7 需用户自行安装，机器上很可能没有）。
 
 ### 完整示例（加到某目录节点的 `children` 里）
 

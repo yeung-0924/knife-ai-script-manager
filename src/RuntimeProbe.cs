@@ -18,12 +18,21 @@ public static class RuntimeProbe
     {
         // 顺序遵循朝云约定：cmd → powershell → powershell7 → bash → java → nodejs → python → go → rust
         [ScriptLangs.Cmd]        = ("/c ver",                                                       new Regex(@"Windows.*\d+",   RegexOptions.Compiled)),
-        [ScriptLangs.PowerShell] = ("-NoProfile -Command \"$PSVersionTable.PSVersion.ToString()\"", new Regex(@"\d+\.\d+", RegexOptions.Compiled)),
-        // 必须校验主版本号 >= 6：Windows PowerShell 5.1 跑同一条命令会输出 "5.1.19041.xxx"，
-        // 若沿用 powershell 的 \d+\.\d+ 正则会被误判为可用，使 pwsh 与 powershell 失去区分。
+        // powershell 与 pwsh 是【两个互不相通的语言】（2026-09-16 定），绑定关系必须严格：
+        //   powershell ≡ Windows PowerShell 5.1（主版本 ≤5，现实唯一版本即 5.1）
+        //   pwsh       ≡ PowerShell 6+（主版本 ≥6）
+        // 因此这里必须校验主版本号 ≤5：装了 PowerShell 7 的机器上，若沿用 \d+\.\d+，
+        // 「powershell」脚本会通过校验并绑到 pwsh.exe，与 pwsh 语言混用。宁可判负标红，
+        // 也不允许 7 冒充 5.1。改此处前请先确认该决策已变更。
+        [ScriptLangs.PowerShell] = ("-NoProfile -Command \"$PSVersionTable.PSVersion.ToString()\"", new Regex(@"^[1-5]\.", RegexOptions.Compiled)),
+        // 对称的另一半：pwsh 必须校验主版本号 >= 6。Windows PowerShell 5.1 跑同一条命令会输出
+        // "5.1.19041.xxx"，若沿用 \d+\.\d+ 会被误判为可用，使 pwsh 与 powershell 失去区分。
         [ScriptLangs.Pwsh]       = ("-NoProfile -Command \"$PSVersionTable.PSVersion.ToString()\"",  new Regex(@"^([6-9]|\d{2,})\.", RegexOptions.Compiled)),
         [ScriptLangs.Bash]       = ("--version",                                                    new Regex(@"\bGNU\b.*\b\d+\.\d+|\b\d+\.\d+.*\bbash\b", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        [ScriptLangs.Java]       = ("-version",                                                     new Regex(@"openjdk",          RegexOptions.Compiled | RegexOptions.IgnoreCase)),
+        // 首行须以「java version」或「openjdk version」起头：Oracle JDK / GraalVM 打印 `java version "25.0.4"`，
+        // Temurin / Corretto / Zulu / OpenJ9 打印 `openjdk version "..."`。原先只认 openjdk，
+        // 会把官方 Oracle 系与 GraalVM 的真 JDK 判负（执行按钮直接置灰），故补上 java 前缀。
+        [ScriptLangs.Java]       = ("-version",                                                     new Regex(@"^(openjdk|java)\s+version", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
         [ScriptLangs.Node]       = ("--version",                                                    new Regex(@"v\d+\.\d+\.\d+",  RegexOptions.Compiled)),
         [ScriptLangs.Python]     = ("--version",                                                    new Regex(@"Python\s*\d+\.\d+", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
         [ScriptLangs.Go]         = ("version",                                                      new Regex(@"go\d+\.\d+",       RegexOptions.Compiled | RegexOptions.IgnoreCase)),

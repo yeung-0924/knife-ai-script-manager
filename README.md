@@ -38,6 +38,12 @@ knife-ai-script-manager/
 > 可执行文件的自动检测顺序为：`runtime_dir` 目录（免安装运行时）→ 系统环境变量 `PATH` → Windows 系统目录。
 > 因此把绿色版运行时（如解压好的 JDK）放进 `runtime_dir` 即可被优先采用，不必依赖机器上已安装的版本；
 > 目录内支持 `runtime\<exe>`、`runtime\bin\<exe>`、`runtime\<子目录>\bin\<exe>`（如 `runtime\jdk-25\bin\java.exe`）等布局。
+>
+> 检测到的可执行文件还要通过一次**版本探针**（实跑该语言的版本命令并校验首行指纹）才会被采用。
+> **`lang` 是第一准则，决定用哪个运行时**，其中 `powershell` 与 `pwsh` 是**两个互不相通的语言**：
+> `powershell` ≡ Windows PowerShell 5.1（探针要求主版本号 ≤5），`pwsh` ≡ PowerShell 6+（要求主版本号 ≥6），
+> 各自只认同名的可执行文件、绝不互相回退。故 `lang=powershell` 的脚本不会被绑到 PowerShell 7 上（反之亦然）；
+> 机器没装 PowerShell 7 时，`lang=pwsh` 的脚本就是「检测不到运行时」并标红置灰，不会降级到 5.1 运行。
 
 ## 脚本来源（单一来源）
 
