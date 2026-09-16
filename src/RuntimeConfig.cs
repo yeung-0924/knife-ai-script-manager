@@ -55,8 +55,10 @@ public static class RuntimeConfig
         // 顺序遵循朝云约定：cmd → powershell → powershell7 → bash → java → nodejs → python → go → rust
         [ScriptLangs.Cmd]        = new[] { "cmd.exe" },
         [ScriptLangs.PowerShell] = new[] { "pwsh.exe", "powershell.exe" },
-        // 只认 pwsh.exe（PowerShell 6+），不回退到 powershell.exe——
-        // 回退会让「指定 pwsh」退化成可能跑在 5.1 上，失去区分意义
+        // 只认 pwsh.exe（PowerShell 6+）。【刻意不回退】到 powershell.exe：
+        // 回退会让「指定 pwsh」退化成可能跑在 5.1 上，与 powershell 失去区分意义。
+        // 这是产品决策而非实现疏漏——机器未装 PS7 时，pwsh 脚本就该「检测不到运行时」并标红置灰，
+        // 宁可不可用，也不要静默降级到 5.1（2026-09-16 确认）。改此处前请先确认该决策已变更。
         [ScriptLangs.Pwsh]       = new[] { "pwsh.exe" },
         [ScriptLangs.Bash]       = new[] { "bash.exe" },
         [ScriptLangs.Java]       = new[] { "java.exe" },
