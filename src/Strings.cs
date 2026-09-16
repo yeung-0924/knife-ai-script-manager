@@ -53,7 +53,8 @@ public static class Strings
     public const string TitleAiEdit = "编辑脚本";
     public const string TitleAiGenerate = "生成脚本";
     public const string AiGenDescLabel = "脚本功能描述";
-    public const string AiGenDescPlaceholder = "用自然语言描述脚本要做什么；可一并说明需要的参数（如：参数「目录」类型为 folder、参数「关键字」类型为 text）和语言（如：python）。越具体，生成越准。";
+    // 占位提示 = 一段可直接照抄的完整示例：示范「语言 + 功能 + 参数（类型/必填/默认值/选项）」的写法，并列出可选语言与参数类型，让用户一眼知道本功能能做什么。\n 为换行，TextBlock 会分两段显示。
+    public const string AiGenDescPlaceholder = "请用 python 帮我实现「批量重命名」脚本：读取参数「目录」（folder 类型，必填）下的全部文件，按「前缀」（text 类型，如 img_）加序号依次重命名；再用「起始序号」（text 类型，默认 1）和「是否处理子目录」（select 类型，选项 是/否，默认 否）两个参数控制行为；执行完成后打印新旧文件名对照表。\n（语言也可写 node / java / go / rust / powershell / pwsh / cmd / bash；参数可标注 text、folder、file、select 类型，并说明是否必填、默认值与可选项。描述越具体，生成越准。）";
     public const string AiGenEditLabel = "修改要求（要改什么，越具体越好）";
     public const string AiGenEditPlaceholder = "描述要如何修改这个脚本（如：增加一个「重试次数」参数，失败时自动重试；把语言改成 pwsh）…";
     public const string AiGenPreviewScript = "脚本预览（生成后展示，接受前可检查）";
