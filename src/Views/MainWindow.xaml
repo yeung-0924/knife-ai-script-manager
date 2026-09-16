@@ -12,13 +12,10 @@
         WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
-        <!-- 树节点模板：图标 + 名称。
-             根 Grid 设 Background="Transparent"（而不是默认的 null）：WPF 命中测试会穿透 null 背景的元素，
-             导致只有点在图标/文字像素上才选中；设成实在的 Transparent 画刷后整行（含右侧空白）都能命中，
-             左键选中、右键弹菜单在整行任意位置均生效。 -->
+        <!-- 树节点模板：图标 + 名称 -->
         <HierarchicalDataTemplate DataType="{x:Type vm:ScriptTreeItem}"
                                   ItemsSource="{Binding Children}">
-            <Grid Margin="2" Background="Transparent">
+            <Grid Margin="2">
                 <StackPanel Orientation="Horizontal">
                     <Image Source="{Binding Icon}" Width="16" Height="16" Margin="0,0,4,0"
                            Visibility="{Binding Icon, Converter={x:Static local:NullToVisibilityConverter.Instance}}" />

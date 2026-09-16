@@ -505,7 +505,7 @@ public partial class MainWindow : Window
         return null;
     }
 
-    // ---- 目录树拖拽：拖目录 / 脚本改变其显示层级（只改 index.json 结构，不动物理脚本文件）----
+    // ---- 目录树拖拽：拖目录 / 脚本改变其显示层级与同级顺序（只改 index.json 结构，不动物理脚本文件）----
 
     /// <summary>拖拽候选源节点（左键按下时记录）；DoDragDrop 返回后清空。</summary>
     private ScriptTreeItem? _dragStartNode;
@@ -515,6 +515,12 @@ public partial class MainWindow : Window
 
     /// <summary>当前被高亮为放置目标的 TreeViewItem（拖拽经过时置，离开/放下时清）。</summary>
     private TreeViewItem? _dragOverItem;
+
+    /// <summary>当前高亮对应的放置模式，用于避免重复设置边框。</summary>
+    private DropMode _dragOverMode = DropMode.None;
+
+    /// <summary>放置模式：同级之前插入 / 同级之后插入 / 作为子项放入。</summary>
+    private enum DropMode { None, Before, After, Inside }
 
     /// <summary>左键按下：记录拖拽候选源；真正开始拖拽在 MouseMove 里按位移阈值判定。</summary>
     private void TreeItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -544,23 +550,62 @@ public partial class MainWindow : Window
         _dragStartNode = null;
     }
 
-    /// <summary>合法性校验：源不能是自身 / 自身子孙；目标只能是目录（放到其下）或脚本（放到其同级）。</summary>
-    private static bool IsValidDropTarget(ScriptTreeItem? src, ScriptTreeItem? target)
+    /// <summary>
+    /// 按鼠标在目标项内的垂直位置推断放置模式（支持同级排序）：
+    /// 目录——上 1/4 插到其前、下 1/4 插到其后、中间 1/2 放入其内；
+    /// 脚本——上 1/2 插到其前、下 1/2 插到其后（脚本无子项，不存在「放入」）。
+    /// </summary>
+    private static DropMode GetDropMode(TreeViewItem tvi, Point pos, ScriptTreeItem? target)
     {
-        if (src == null || target == null) return false;
-        if (ReferenceEquals(src, target)) return false;
-        if (string.IsNullOrEmpty(src.EntryId) || string.IsNullOrEmpty(target.EntryId)) return false;
+        if (target == null) return DropMode.None;
+        var h = tvi.ActualHeight;
+        if (h <= 0) return DropMode.None;
         if (target.Kind == ScriptTreeItem.NodeKind.Group)
-            return !(src.Kind == ScriptTreeItem.NodeKind.Group && IsSelfOrDescendant(src, target));
-        return target.Kind == ScriptTreeItem.NodeKind.Script;
+        {
+            if (pos.Y < h * 0.25) return DropMode.Before;
+            if (pos.Y > h * 0.75) return DropMode.After;
+            return DropMode.Inside;
+        }
+        return pos.Y < h * 0.5 ? DropMode.Before : DropMode.After;
     }
 
-    /// <summary>node 是否等于 ancestor 或位于其子树内（用于禁止把目录拖进自己的子孙）。</summary>
-    private static bool IsSelfOrDescendant(ScriptTreeItem ancestor, ScriptTreeItem node)
+    /// <summary>把放置模式解析为「目标父 id + 锚点兄弟 id + 是否插到锚点之后」；锚点为空 = 追加到目标父末尾。</summary>
+    private static (string? parentId, string? anchorId, bool insertAfter) ResolveDrop(ScriptTreeItem? target, DropMode mode)
     {
-        if (ReferenceEquals(ancestor, node)) return true;
-        foreach (var c in ancestor.Children)
-            if (IsSelfOrDescendant(c, node)) return true;
+        if (target == null || mode == DropMode.None)
+            return (null, null, false);                                  // 空白 = 根层级末尾
+        if (mode == DropMode.Inside)
+            return (target.EntryId, null, false);                        // 放入目录末尾
+        // Before / After：与目标同级，锚点 = 目标自身
+        return (ScriptIndexStore.FindParentId(target.EntryId!), target.EntryId, mode == DropMode.After);
+    }
+
+    /// <summary>合法性校验：源不能是自身；不能放进脚本；插入位置的父不能是源自身或源（目录）的子孙。</summary>
+    private static bool IsValidDropTarget(ScriptTreeItem? src, ScriptTreeItem? target, DropMode mode)
+    {
+        if (src == null || target == null || mode == DropMode.None) return false;
+        if (ReferenceEquals(src, target)) return false;
+        if (string.IsNullOrEmpty(src.EntryId) || string.IsNullOrEmpty(target.EntryId)) return false;
+        if (src.Kind == ScriptTreeItem.NodeKind.Root) return false;
+        if (mode == DropMode.Inside && target.Kind != ScriptTreeItem.NodeKind.Group) return false;
+        return IsValidParent(src, ResolveDrop(target, mode).parentId);
+    }
+
+    /// <summary>目标父是否合法：根（null）恒可；否则不能是源自身，也不能是源（目录）的子孙。</summary>
+    private static bool IsValidParent(ScriptTreeItem src, string? newParentId)
+    {
+        if (string.IsNullOrEmpty(newParentId)) return true;
+        if (string.Equals(newParentId, src.EntryId, StringComparison.Ordinal)) return false;
+        return src.Kind != ScriptTreeItem.NodeKind.Group || !TreeContainsId(src, newParentId);
+    }
+
+    private static bool TreeContainsId(ScriptTreeItem node, string id)
+    {
+        foreach (var c in node.Children)
+        {
+            if (string.Equals(c.EntryId, id, StringComparison.Ordinal)) return true;
+            if (TreeContainsId(c, id)) return true;
+        }
         return false;
     }
 
@@ -568,10 +613,11 @@ public partial class MainWindow : Window
     {
         if (sender is not TreeViewItem tvi) return;
         var target = tvi.DataContext as ScriptTreeItem;
-        if (_dragStartNode != null && IsValidDropTarget(_dragStartNode, target))
+        var mode = GetDropMode(tvi, e.GetPosition(tvi), target);
+        if (IsValidDropTarget(_dragStartNode, target, mode))
         {
             e.Effects = DragDropEffects.Move;
-            HighlightDropTarget(tvi);
+            HighlightDropTarget(tvi, mode);
         }
         else
         {
@@ -593,15 +639,13 @@ public partial class MainWindow : Window
         ClearDropHighlight();
         if (sender is not TreeViewItem tvi) return;
         var target = tvi.DataContext as ScriptTreeItem;
-        if (_dragStartNode == null || !IsValidDropTarget(_dragStartNode, target)) return;
-        // 目录 → 成为其子项；脚本 → 放到该脚本同级（父目录）
-        string? newParentId = target!.Kind == ScriptTreeItem.NodeKind.Group
-            ? target.EntryId
-            : ScriptIndexStore.FindParentId(target.EntryId!);
-        PerformTreeMove(_dragStartNode, newParentId);
+        var mode = GetDropMode(tvi, e.GetPosition(tvi), target);
+        if (!IsValidDropTarget(_dragStartNode, target, mode)) return;
+        var (parentId, anchorId, insertAfter) = ResolveDrop(target, mode);
+        PerformTreeMove(_dragStartNode!, parentId, anchorId, insertAfter);
     }
 
-    /// <summary>拖到树面板空白处 = 移到根层级。</summary>
+    /// <summary>拖到树面板空白处 = 移到根层级末尾。</summary>
     private void ScriptTreeView_DragOver(object sender, DragEventArgs e)
     {
         var hit = VisualTreeHelper.HitTest(ScriptTreeView, e.GetPosition(ScriptTreeView));
@@ -625,16 +669,20 @@ public partial class MainWindow : Window
         e.Handled = true;
         ClearDropHighlight();
         if (_dragStartNode == null) return;
-        PerformTreeMove(_dragStartNode, null);
+        PerformTreeMove(_dragStartNode, null, null, false);
     }
 
-    /// <summary>执行移动：写 index.json 后整树重建（复用 ReloadTree，展开状态经树状态缓存恢复）。</summary>
-    private void PerformTreeMove(ScriptTreeItem src, string? newParentId)
+    /// <summary>
+    /// 执行移动：先固化当前展开状态——否则 ReloadTree 读到的树状态缓存是陈旧的（缓存只在关窗时写），
+    /// 会把本次会话里手动展开的目录全部收起；随后写 index.json 并整树重建，由缓存恢复展开。
+    /// </summary>
+    private void PerformTreeMove(ScriptTreeItem src, string? newParentId, string? anchorId, bool insertAfter)
     {
         if (string.IsNullOrEmpty(src.EntryId)) return;
         try
         {
-            ScriptIndexStore.MoveEntry(src.EntryId!, newParentId);
+            _vm.SaveTreeState();
+            ScriptIndexStore.MoveEntry(src.EntryId!, newParentId, anchorId, insertAfter);
             _vm.ReloadTree();
         }
         catch (System.Exception ex)
@@ -647,14 +695,20 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>高亮放置目标（项边框变蓝），并清掉上一个高亮。</summary>
-    private void HighlightDropTarget(TreeViewItem tvi)
+    /// <summary>按放置模式高亮目标：Inside 整框、Before 上边线、After 下边线（均为蓝色）。</summary>
+    private void HighlightDropTarget(TreeViewItem tvi, DropMode mode)
     {
-        if (ReferenceEquals(_dragOverItem, tvi)) return;
+        if (ReferenceEquals(_dragOverItem, tvi) && _dragOverMode == mode) return;
         ClearDropHighlight();
         _dragOverItem = tvi;
-        tvi.BorderThickness = new Thickness(2);
+        _dragOverMode = mode;
         tvi.BorderBrush = (Brush)FindResource("BrushPrimary");
+        tvi.BorderThickness = mode switch
+        {
+            DropMode.Before => new Thickness(0, 2, 0, 0),
+            DropMode.After => new Thickness(0, 0, 0, 2),
+            _ => new Thickness(2),
+        };
     }
 
     private void ClearDropHighlight()
@@ -663,6 +717,7 @@ public partial class MainWindow : Window
         _dragOverItem.BorderThickness = new Thickness(0);
         _dragOverItem.ClearValue(Control.BorderBrushProperty);
         _dragOverItem = null;
+        _dragOverMode = DropMode.None;
     }
 
     /// <summary>

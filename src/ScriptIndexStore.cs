@@ -172,11 +172,11 @@ public static class ScriptIndexStore
 
     /// <summary>
     /// 移动条目到新父级（根层级 / 某个目录条目之下），改变其在树中的显示层级；仅改 JSON 结构，不动物理脚本文件。
+    /// <paramref name="anchorSiblingId"/> 非空时插入到该同级项之前 / 之后（拖拽排序），为空则追加到目标父末尾。
     /// 约束：① 不能把条目拖到它自身之下；② 目录不能拖到它自己的子孙目录里（会形成环）；
     /// ③ 目录移动到目标同级若存在不同 id 的同名项则拒绝（脚本允许同级同名，与创建语义一致）。
-    /// 同级重排（newParentId 等于当前父 id）也走此路径，仅调整顺序。
     /// </summary>
-    public static void MoveEntry(string entryId, string? newParentId)
+    public static void MoveEntry(string entryId, string? newParentId, string? anchorSiblingId = null, bool insertAfter = false)
     {
         var root = LoadRoot();
         var srcParent = FindParentArrayById(root, entryId)
@@ -212,8 +212,25 @@ public static class ScriptIndexStore
         if (srcNode["children"] is JsonArray)
             EnsureSiblingNameFree(targetArr, srcNode["name"]?.GetValue<string>() ?? "", entryId);
 
-        // 从原父移除（断开引用）后插入目标末尾；同一 JsonObject 引用改挂到新父，JSON 结构即更新
+        // 先从原父移除（断开引用），再按锚点插入目标数组；锚点为空 = 追加末尾
+        // （同一 JsonObject 引用改挂到新父，JSON 结构即更新；先移除再定位锚点，索引才是移除后的正确值）
         srcParent.Remove(srcNode);
+        if (!string.IsNullOrEmpty(anchorSiblingId))
+        {
+            var idx = -1;
+            for (var i = 0; i < targetArr.Count; i++)
+            {
+                if (targetArr[i] is JsonObject o
+                    && string.Equals(o["id"]?.GetValue<string>(), anchorSiblingId, StringComparison.Ordinal))
+                { idx = i; break; }
+            }
+            if (idx >= 0)
+            {
+                targetArr.Insert(insertAfter ? idx + 1 : idx, srcNode);
+                Save(root);
+                return;
+            }
+        }
         targetArr.Add(srcNode);
         Save(root);
     }
