@@ -87,7 +87,7 @@ public static class Strings
 
     #region 脚本树右键菜单
     public const string TreeMenuCreateDir = "创建目录";
-    public const string TreeMenuCreateScript = "创建脚本（AI）";
+    public const string TreeMenuCreateScript = "创建脚本";
     public const string TreeMenuEditScript = "编辑脚本";
     public const string TreeMenuRename = "重命名";
     public const string TreeMenuDeleteDir = "删除目录";

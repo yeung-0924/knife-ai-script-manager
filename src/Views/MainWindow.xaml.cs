@@ -218,9 +218,9 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// 脚本树右键菜单：按命中目标动态构建——
-    ///  - 面板空白：创建目录 / 创建脚本（AI）；
-    ///  - 目录节点：创建目录 / 创建脚本（AI）/ 删除目录；
-    ///  - 脚本节点：编辑脚本 / 删除脚本。
+    ///  - 面板空白：创建目录 / 创建脚本；
+    ///  - 目录节点：创建目录 / 创建脚本，另加 重命名 / 删除目录；
+    ///  - 脚本节点：编辑脚本 / 重命名 / 删除脚本。
     /// 右键先把命中项置为选中（WPF 右键默认不改选中），保证动作取到的就是所点节点。
     /// </summary>
     private void ScriptTreeView_ContextMenuOpening(object sender, ContextMenuEventArgs e)
@@ -242,21 +242,21 @@ public partial class MainWindow : Window
 
         if (node == null || node.Kind != ScriptTreeItem.NodeKind.Script)
         {
-            // 面板 / 目录节点：创建目录 + 创建脚本（AI）
+            // 面板 / 目录节点：创建目录 + 创建脚本
             cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuCreateDir, "folder-plus.svg", TreeCreateDir_Click));
             cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuCreateScript, "bot.svg", TreeCreateScript_Click));
         }
         else
         {
             // 脚本节点：编辑 + 重命名 + 删除
-            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuEditScript, "pencil.svg", TreeEditScript_Click));
+            // 「编辑脚本」与「创建脚本」同用机器人图标（bot.svg），让用户一眼识别这是 AI 功能
+            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuEditScript, "bot.svg", TreeEditScript_Click));
             cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuRename, "pencil.svg", TreeRename_Click));
             cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuDeleteScript, "trash-2.svg", TreeDeleteScript_Click));
         }
 
         if (node is { Kind: ScriptTreeItem.NodeKind.Group })
         {
-            cm.Items.Add(new Separator());
             cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuRename, "pencil.svg", TreeRename_Click));
             cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuDeleteDir, "trash-2.svg", TreeDeleteDir_Click));
         }
@@ -300,7 +300,7 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>右键「创建脚本（AI）」：打开 AI 编辑器（创建模式），新条目将插入所点目录（面板空白 = 根层级）。</summary>
+    /// <summary>右键「创建脚本」：打开 AI 编辑器（创建模式），新条目将插入所点目录（面板空白 = 根层级）。</summary>
     private void TreeCreateScript_Click(object sender, RoutedEventArgs e)
     {
         var parentId = _ctxNode is { Kind: ScriptTreeItem.NodeKind.Group } g ? g.EntryId : null;
