@@ -1264,6 +1264,17 @@ public class MainViewModel : ViewModelBase
             return;
         }
 
+        // 语言标注有误（不受支持的取值，如 ps1 / powershell7）：检测与探针都无从下手，
+        // 必须点明是「语言不受支持」，否则用户会以为是本机缺运行时而反复折腾（装什么也没用）。
+        if (!RuntimeConfig.IsSupported(lang))
+        {
+            SelectedExePath = "";
+            RuntimePlaceholder = string.Format(Strings.RuntimePlaceholderUnsupportedLang, lang);
+            RuntimeError = true;
+            IsRuntimeChecking = false;   // 本分支直接返回、不跑探针，需显式复位上一次可能仍在飞的校验标志
+            return;
+        }
+
         // 已保存的选择优先；未配置【或已失效（文件已被删除，如旧 JDK 卸载/更新）】则尝试自动检测并落盘，
         // 实现「PATH 里有就默认带出」「换新版本后无需手动重选」
         var path = RuntimeConfig.Get(lang!);
@@ -1298,21 +1309,57 @@ public class MainViewModel : ViewModelBase
         if (RuntimeProbe.TryGetCached(lang, exePath, out var cached))
         {
             ApplyProbeResult(lang!, cached.ok, cached.version);
+            // 判负已是已知结论，但**不能就此停住**：该绑定可能来自旧版本的候选规则
+            // （见 RuntimeConfig.FindUsableAlternative），不重新检测就永远好不了。
+            if (!cached.ok) ProbeRuntimeAsync(lang!, exePath, alreadyKnownBad: true);
             return;
         }
 
         SetBaseStatus(Strings.StatusReady);
         RuntimeError = false;
         IsRuntimeChecking = true;   // 校验中：执行按钮置灰、选择框禁用
-        var probeLang = lang!;
+        ProbeRuntimeAsync(lang!, exePath, alreadyKnownBad: false);
+    }
+
+    /// <summary>
+    /// 后台实跑版本探针，完成后回 UI 线程落结果。判负时顺带做一次<b>绑定自愈</b>：按当前候选表重新检测，
+    /// 命中「不同且确实可用」的路径就替换并落盘。
+    /// <para>
+    /// 为什么需要：已保存的路径只按「文件是否存在」沿用，探针判负也只标红、不重检测。于是旧版本遗留的绑定
+    /// （如 powershell/pwsh 解耦之前，powershell 的候选表把 pwsh.exe 排在首位）会永久僵死——
+    /// 机器上明明有正确的 5.1，脚本却一直标红不可用，且换机/升级都不会自愈。
+    /// 自愈只在同语言候选表内进行，无可用替代则维持原状（标红置灰），绝不跨语言兜底。
+    /// </para>
+    /// </summary>
+    /// <param name="alreadyKnownBad">true 表示该 exe 的探针结果已知为负（来自缓存），跳过重复实跑，直接尝试自愈。</param>
+    private void ProbeRuntimeAsync(string lang, string exePath, bool alreadyKnownBad)
+    {
+        if (alreadyKnownBad) IsRuntimeChecking = true;   // 自愈同样要起子进程，一并告知 UI「校验中」
         Task.Run(() =>
         {
-            var (ok, version) = RuntimeProbe.Probe(probeLang, exePath);
+            bool ok;
+            string? version;
+            if (alreadyKnownBad) { ok = false; version = null; }
+            else { (ok, version) = RuntimeProbe.Probe(lang, exePath); }
+
+            string? healed = null;
+            if (!ok)
+            {
+                var alt = RuntimeConfig.FindUsableAlternative(lang, exePath, p => RuntimeProbe.Probe(lang, p).ok);
+                if (alt != null)
+                {
+                    RuntimeConfig.Save(lang, alt);   // 落盘：此后直接命中，不再重复自愈
+                    (ok, version) = RuntimeProbe.Probe(lang, alt);
+                    healed = alt;
+                }
+            }
+
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
                 // 用户可能已切到别的脚本，丢弃过期结果
-                if (!string.Equals(SelectedScript?.Lang, probeLang, StringComparison.OrdinalIgnoreCase)) return;
-                ApplyProbeResult(probeLang, ok, version);
+                if (!string.Equals(SelectedScript?.Lang, lang, StringComparison.OrdinalIgnoreCase)) return;
+                if (healed != null) SelectedExePath = healed;   // 自愈成功：顶层输入框同步显示换绑后的路径
+                ApplyProbeResult(lang, ok, version);
             }));
         });
     }

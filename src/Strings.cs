@@ -165,6 +165,9 @@ public static class Strings
 
     #region 占位提示
     public const string RuntimePlaceholderMissing = "未检测到有效的可执行文件，请配置 runtime 目录或环境变量，或自行选择";
+    // lang 取值不在支持列表内（≠ 本机缺运行时）：检测与版本探针都无从下手，必须点明是「语言标注」问题，
+    // 否则用户会误以为是环境没装好而反复折腾。{0} = 脚本声明的 lang 原值。
+    public const string RuntimePlaceholderUnsupportedLang = "脚本语言「{0}」不受支持，无法校验可执行文件；请检查脚本索引里的 lang 取值";
     #endregion
 
     #region 可执行文件路径输入框 ToolTip

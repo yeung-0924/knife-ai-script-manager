@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -49,8 +50,52 @@ public static class RuntimeConfig
         return null;
     }
 
+    /// <summary>
+    /// 该 lang 是否受支持（在候选表内）。用于把「脚本语言标注有误」与「本机缺运行时」两类问题分开提示：
+    /// 未知语言的自动检测与版本探针都无从下手（<see cref="RuntimeProbe"/> 的表里也没有它），
+    /// 若只显示「未检测到运行时」，会把用户引向错误方向（去装运行时，装什么也没用）。
+    /// </summary>
+    public static bool IsSupported(string? lang) =>
+        !string.IsNullOrWhiteSpace(lang) && DefaultCandidates.ContainsKey(lang!);
+
+    /// <summary>
+    /// 已保存的运行时路径不可用时的「自愈」检测：按<b>当前</b>候选表重新检测，返回一个与 <paramref name="current"/>
+    /// 不同、且通过 <paramref name="isUsable"/>（通常是版本探针）的替代路径；没有可用替代则返回 null。
+    /// <para>
+    /// 存在意义：<c>cache/runtimes.json</c> 里可能残留<b>旧版本规则写入</b>的绑定。典型是 powershell 与 pwsh
+    /// 解耦之前，powershell 的候选表曾把 pwsh.exe 排在首位——装了 PowerShell 7 的机器上会把「powershell」
+    /// 绑到 pwsh.exe 并落盘。该绑定此后只按「文件是否存在」被沿用，探针判负也只是标红、不会重新检测，
+    /// 于是机器上明明有正确的 5.1，脚本却永久不可用（换机/升级后同样如此）。
+    /// </para>
+    /// <para>
+    /// 边界：只在<b>同语言</b>的候选表内寻找（<see cref="Detect"/> 天然不跨语言），因此不存在「降级到另一个
+    /// 语言」的可能——powershell 只会找到 powershell.exe，绝不接受 pwsh.exe。找不到替代时维持原状（标红置灰）。
+    /// </para>
+    /// </summary>
+    public static string? FindUsableAlternative(string lang, string? current, Func<string, bool> isUsable)
+    {
+        var alt = Detect(lang);
+        if (string.IsNullOrWhiteSpace(alt)) return null;
+        if (string.Equals(alt, current, StringComparison.OrdinalIgnoreCase)) return null;
+        try
+        {
+            return isUsable(alt) ? alt : null;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[RuntimeConfig] 自愈检测异常 {lang}：{ex.Message}");
+            return null;
+        }
+    }
+
     /// <summary>每个 lang 在自动检测时尝试的执行文件名候选（按顺序匹配）。</summary>
-    private static readonly Dictionary<string, string[]> DefaultCandidates = new()
+    /// <remarks>
+    /// 字典用 <see cref="StringComparer.OrdinalIgnoreCase"/>：index.json 的 lang 由用户/AI 书写，
+    /// 大小写不该影响检测。此处若用默认（区分大小写）比较器，lang 写成 "PowerShell" 会让
+    /// <see cref="Detect"/> 静默返回 null——机器上装着 5.1 却提示未检测到运行时。
+    /// 注意 keys 互不同形（powershell / pwsh 并非仅大小写之差），故不敏感归并不会产生歧义。
+    /// </remarks>
+    private static readonly Dictionary<string, string[]> DefaultCandidates = new(StringComparer.OrdinalIgnoreCase)
     {
         // 顺序遵循朝云约定：cmd → powershell → powershell7 → bash → java → nodejs → python → go → rust
         [ScriptLangs.Cmd]        = new[] { "cmd.exe" },
