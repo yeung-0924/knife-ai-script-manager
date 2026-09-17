@@ -38,13 +38,6 @@
                                              UriSource='pack://application:,,,/assets/images/button/folder-open.svg' />
                         </MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Command="{Binding ExportCommand}"
-                              Header="{x:Static local:Strings.BtnExport}">
-                        <MenuItem.Icon>
-                            <svgc:SvgViewbox Width="13" Height="13"
-                                             UriSource='pack://application:,,,/assets/images/button/download.svg' />
-                        </MenuItem.Icon>
-                    </MenuItem>
                 </MenuItem>
                 <MenuItem Header="{x:Static local:Strings.MenuSettings}">
                     <MenuItem Header="{x:Static local:Strings.MenuEditConfig}"
@@ -528,10 +521,10 @@
                                                              HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Button>
                                         <Button Style="{StaticResource BaseButtonLight}"
-                                                Command="{Binding ExportPreviewCommand}"
+                                                Command="{Binding SaveAsPreviewCommand}"
                                                 Width="24" Height="24" Padding="0"
                                                 Margin="0,0,3,0"
-                                                ToolTip="{x:Static local:Strings.BtnSave}">
+                                                ToolTip="{x:Static local:Strings.BtnSaveAs}">
                                             <svgc:SvgViewbox Width="13" Height="13"
                                                              UriSource='pack://application:,,,/assets/images/button/save.svg'
                                                              HorizontalAlignment="Center" VerticalAlignment="Center" />

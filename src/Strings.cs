@@ -20,9 +20,9 @@ public static class Strings
     #endregion
 
     #region 按钮
-    public const string BtnExport = "导出";
     public const string BtnOpen = "打开";
     public const string BtnSave = "保存";
+    public const string BtnSaveAs = "另存为";
     public const string BtnReset = "重置";
     public const string BtnDefault = "默认值";
     public const string BtnCopy = "复制";
@@ -92,6 +92,7 @@ public static class Strings
     #region 脚本树右键菜单
     public const string TreeMenuCreateDir = "创建目录";
     public const string TreeMenuCreateScript = "创建脚本";
+    public const string TreeMenuSaveAs = "另存为";
     public const string TreeMenuEditScript = "编辑脚本";
     public const string TreeMenuRename = "重命名";
     public const string TreeMenuDeleteDir = "删除目录";
@@ -131,11 +132,10 @@ public static class Strings
     public const string StatusRuntimePickedFormat = "已为 {0} 指定可执行文件：{1}";
     // 执行器（可执行文件）校验失败时的状态栏后缀：与 StatusReady 拼接为「就绪 · 未检测到有效的可执行文件」
     public const string StatusRuntimeInvalid = "未检测到有效的可执行文件";
-    public const string StatusExportedTo = "已导出到：{0}";
-    public const string StatusExportEmpty = "导出失败：没有可导出的脚本";
-    public const string StatusExportSameDir = "导出目标与源脚本目录相同，请另选目录";
-    public const string StatusExportSourceMissingFormat = "脚本目录不存在：{0}";
-    public const string StatusExportFailFormat = "导出失败：{0}";
+    public const string StatusSaveAsScriptDone = "已另存为：{0}";
+    public const string StatusSaveAsDone = "已另存为压缩包：{0}";
+    public const string StatusSaveAsEmpty = "该目录没有可导出的脚本";
+    public const string StatusSaveAsFailFormat = "另存为失败：{0}";
     public const string StatusCopied = "已复制脚本内容到剪贴板";
     public const string StatusLogCopied = "已复制日志内容到剪贴板";
     #endregion
@@ -185,8 +185,7 @@ public static class Strings
     public const string DlgPickFileTitle = "请选择{0}";
     public const string DlgPickFileFilter = "所有文件 (*.*)|*.*";
     public const string DlgPickFolderTitle = "请选择{0}";
-    public const string DlgExportDirTitle = "选择导出目录";
-    public const string DlgExportScriptDonePrefix = "导出的脚本已保存到：";
+    public const string DlgExportZipTitle = "另存为压缩包";
     public const string DlgOpenScriptFileTitle = "选择脚本索引文件（index.json）";
     #endregion
 

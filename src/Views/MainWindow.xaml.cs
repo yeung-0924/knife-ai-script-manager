@@ -240,32 +240,40 @@ public partial class MainWindow : Window
     {
         var cm = new ContextMenu();
 
-        if (node == null || node.Kind != ScriptTreeItem.NodeKind.Script)
+        if (node == null)
         {
-            // 面板 / 目录节点：创建目录 + 创建脚本
+            // 面板空白（根层级）：目录类基础操作 + 整树「另存为」（无脚本时置灰）
             cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuCreateDir, "folder-plus.svg", TreeCreateDir_Click));
             cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuCreateScript, "bot.svg", TreeCreateScript_Click));
-        }
-        else
-        {
-            // 脚本节点：编辑 + 重命名 + 删除
-            // 「编辑脚本」与「创建脚本」同用机器人图标（bot.svg），让用户一眼识别这是 AI 功能
-            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuEditScript, "bot.svg", TreeEditScript_Click));
-            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuRename, "pencil.svg", TreeRename_Click));
-            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuDeleteScript, "trash-2.svg", TreeDeleteScript_Click));
+            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuSaveAs, "download.svg", TreeSaveAsRoot_Click,
+                _vm.ScriptTreeHasScripts()));
+            return cm;
         }
 
-        if (node is { Kind: ScriptTreeItem.NodeKind.Group })
+        if (node.Kind == ScriptTreeItem.NodeKind.Group)
         {
+            // 目录类：创建目录 / 创建脚本 / 另存为（空目录置灰）/ 重命名 / 删除
+            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuCreateDir, "folder-plus.svg", TreeCreateDir_Click));
+            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuCreateScript, "bot.svg", TreeCreateScript_Click));
+            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuSaveAs, "download.svg", TreeSaveAsDir_Click,
+                MainViewModel.HasScriptDescendant(node)));
             cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuRename, "pencil.svg", TreeRename_Click));
             cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuDeleteDir, "trash-2.svg", TreeDeleteDir_Click));
+            return cm;
         }
+
+        // 脚本类：另存为 / 编辑 / 重命名 / 删除
+        // 「编辑脚本」与「创建脚本」同用机器人图标（bot.svg），让用户一眼识别这是 AI 功能
+        cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuSaveAs, "download.svg", TreeSaveAsScript_Click));
+        cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuEditScript, "bot.svg", TreeEditScript_Click));
+        cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuRename, "pencil.svg", TreeRename_Click));
+        cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuDeleteScript, "trash-2.svg", TreeDeleteScript_Click));
         return cm;
     }
 
-    private static MenuItem MakeTreeMenuItem(string header, string iconFile, RoutedEventHandler onClick)
+    private static MenuItem MakeTreeMenuItem(string header, string iconFile, RoutedEventHandler onClick, bool isEnabled = true)
     {
-        var mi = new MenuItem { Header = header };
+        var mi = new MenuItem { Header = header, IsEnabled = isEnabled };
         try
         {
             mi.Icon = new SharpVectors.Converters.SvgViewbox
@@ -281,6 +289,26 @@ public partial class MainWindow : Window
         }
         mi.Click += onClick;
         return mi;
+    }
+
+    /// <summary>右键「另存为」（脚本节点）：按 JSON 显示名 + lang 后缀 + 按语言编码另存为单个脚本文件。</summary>
+    private void TreeSaveAsScript_Click(object sender, RoutedEventArgs e)
+    {
+        if (_ctxNode is { Kind: ScriptTreeItem.NodeKind.Script } node)
+            _vm.SaveAsScript(node);
+    }
+
+    /// <summary>右键「另存为」（目录节点）：把该目录子树打包成 zip（脚本/目录名用 JSON 显示名，空目录置灰）。</summary>
+    private void TreeSaveAsDir_Click(object sender, RoutedEventArgs e)
+    {
+        if (_ctxNode is { Kind: ScriptTreeItem.NodeKind.Group } node)
+            _vm.SaveAsGroup(node);
+    }
+
+    /// <summary>右键「另存为」（面板空白 = 根层级）：把整棵脚本树打包成 zip。</summary>
+    private void TreeSaveAsRoot_Click(object sender, RoutedEventArgs e)
+    {
+        _vm.SaveAsRoot();
     }
 
     /// <summary>右键「创建目录」：目标 = 所点目录节点之下（面板空白 = 根层级）。输入名称 → 写唯一索引 → 刷新树。</summary>

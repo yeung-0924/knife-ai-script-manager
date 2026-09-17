@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Text;
@@ -383,12 +384,11 @@ public class MainViewModel : ViewModelBase
 
     #region 命令
     public RelayCommand RunCommand { get; }
-    public RelayCommand ExportCommand { get; }
     public RelayCommand PickRuntimeCommand { get; }
     public RelayCommand PickExeCommand { get; }
     public RelayCommand AutoRuntimeCommand { get; }
     public RelayCommand CopyCommand { get; }
-    public RelayCommand ExportPreviewCommand { get; }
+    public RelayCommand SaveAsPreviewCommand { get; }
     public RelayCommand StopCommand { get; }
     public RelayCommand ResetParamsCommand { get; }
     public RelayCommand ClearLogCommand { get; }
@@ -417,12 +417,11 @@ public class MainViewModel : ViewModelBase
         RefreshRuntimeStatus();
 
         RunCommand = new RelayCommand(_ => ExecuteRun(false), _ => CanRun);
-        ExportCommand = new RelayCommand(_ => DoExport(), _ => Directory.Exists(ConfigLoader.ScriptDir));
         PickRuntimeCommand = new RelayCommand(_ => PickRuntime());
         PickExeCommand = new RelayCommand(_ => PickExe());
         AutoRuntimeCommand = new RelayCommand(_ => AutoRuntime(), _ => SelectedScript != null && !IsRuntimeChecking);
         CopyCommand = new RelayCommand(_ => CopyPreview(), _ => SelectedScript != null);
-        ExportPreviewCommand = new RelayCommand(_ => ExportPreview(), _ => SelectedScript != null);
+        SaveAsPreviewCommand = new RelayCommand(_ => SaveAsPreview(), _ => SelectedScript != null);
         StopCommand = new RelayCommand(_ => StopRunning(), _ => IsRunning);
         CopyLogCommand = new RelayCommand(_ => CopyLog(), _ => SelectedScript != null && Logs.Count > 0);
         ResetParamsCommand = new RelayCommand(_ => ResetParams(), _ => SelectedScript != null);
@@ -1437,41 +1436,185 @@ public class MainViewModel : ViewModelBase
     #endregion
 
     #region 导出 / 复制 / 重置
-    private void DoExport()
+    #region 另存为（预览区 / 树节点）
+
+    /// <summary>目录节点「另存为」：把该目录（含嵌套子目录）下全部脚本打包成 zip，
+    /// 脚本与目录名均取自 index.json 的显示名；编码按各脚本语言保证可直接运行。
+    /// 空目录（无脚本后代）由调用方禁用菜单项，这里仍做兜底校验。</summary>
+    public void SaveAsGroup(ScriptTreeItem node)
     {
+        if (node is not { Kind: ScriptTreeItem.NodeKind.Group })
+            return;
+
+        if (!HasScriptDescendant(node))
+        {
+            ShowTemporaryStatus(Strings.StatusSaveAsEmpty);
+            return;
+        }
+
+        var safeRoot = SanitizeFileName(string.IsNullOrEmpty(node.Name.Trim())
+            ? "scripts"
+            : StripTrailingExtension(node.Name.Trim()));
+        var dlg = new SaveFileDialog
+        {
+            Title = Strings.DlgExportZipTitle,
+            FileName = $"{safeRoot}.zip",
+            Filter = "压缩文件 (*.zip)|*.zip|所有文件 (*.*)|*.*",
+            AddExtension = true,
+            DefaultExt = "zip"
+        };
+        if (dlg.ShowDialog() != true) return; // 用户取消
+
+        if (File.Exists(dlg.FileName)) File.Delete(dlg.FileName);
+
         try
         {
-            // 让用户自行选择导出目录，将整个 script 目录打包为 script_yyyyMMddHHmmss.zip
-            var dlg = new OpenFolderDialog
+            using (var zip = ZipFile.Open(dlg.FileName, ZipArchiveMode.Create))
             {
-                Title = Strings.DlgExportDirTitle,
-                InitialDirectory = ExeDir
-            };
-            if (dlg.ShowDialog() != true) return; // 用户取消
-            var ok = Exporter.ExportToZip(ConfigLoader.ScriptDir, dlg.FolderName, out var zipPath, out var error);
-            if (ok)
-            {
-                ShowTemporaryStatus(string.Format(Strings.StatusExportedTo, zipPath));
-                // 打开资源管理器并选中刚导出的压缩包
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "explorer.exe",
-                    Arguments = $"/select,\"{zipPath}\"",
-                    UseShellExecute = true
-                });
+                AddNodesToZip(zip, node.Children, safeRoot);
             }
-            else
+            ShowTemporaryStatus(string.Format(Strings.StatusSaveAsDone, dlg.FileName));
+            // 打开资源管理器并选中刚导出的压缩包
+            Process.Start(new ProcessStartInfo
             {
-                ShowTemporaryStatus(string.IsNullOrEmpty(error)
-                    ? Strings.StatusExportEmpty
-                    : string.Format(Strings.StatusExportFailFormat, error));
-            }
+                FileName = "explorer.exe",
+                Arguments = $"/select,\"{dlg.FileName}\"",
+                UseShellExecute = true
+            });
         }
         catch (Exception ex)
         {
-            ShowTemporaryStatus(string.Format(Strings.StatusExportFailFormat, ex.Message));
+            ShowTemporaryStatus(string.Format(Strings.StatusSaveAsFailFormat, ex.Message));
         }
     }
+
+    /// <summary>根层级（面板空白）「另存为」：把整棵脚本树打包成 zip（顶层目录名为 scripts）。</summary>
+    public void SaveAsRoot()
+    {
+        if (ScriptTree == null || ScriptTree.Count == 0 || !ScriptTreeHasScripts())
+        {
+            ShowTemporaryStatus(Strings.StatusSaveAsEmpty);
+            return;
+        }
+
+        var dlg = new SaveFileDialog
+        {
+            Title = Strings.DlgExportZipTitle,
+            FileName = "scripts.zip",
+            Filter = "压缩文件 (*.zip)|*.zip|所有文件 (*.*)|*.*",
+            AddExtension = true,
+            DefaultExt = "zip"
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        if (File.Exists(dlg.FileName)) File.Delete(dlg.FileName);
+
+        try
+        {
+            using (var zip = ZipFile.Open(dlg.FileName, ZipArchiveMode.Create))
+            {
+                AddNodesToZip(zip, ScriptTree, "scripts");
+            }
+            ShowTemporaryStatus(string.Format(Strings.StatusSaveAsDone, dlg.FileName));
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"/select,\"{dlg.FileName}\"",
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            ShowTemporaryStatus(string.Format(Strings.StatusSaveAsFailFormat, ex.Message));
+        }
+    }
+
+    /// <summary>整棵脚本树是否存在任何脚本后代（用于根层级「另存为」可用性判断）。</summary>
+    public bool ScriptTreeHasScripts()
+    {
+        if (ScriptTree == null) return false;
+        foreach (var n in ScriptTree)
+            if (HasScriptDescendant(n)) return true;
+        return false;
+    }
+
+    /// <summary>判断节点是否含脚本后代（目录为空时返回 false，用于禁用「另存为」）。</summary>
+    public static bool HasScriptDescendant(ScriptTreeItem node)
+    {
+        if (node == null) return false;
+        if (node.Kind == ScriptTreeItem.NodeKind.Script) return true;
+        foreach (var c in node.Children)
+            if (HasScriptDescendant(c)) return true;
+        return false;
+    }
+
+    /// <summary>把若干树节点（目录/脚本）递归写入 zip：目录用 index.json 显示名，脚本用显示名 + lang 后缀，编码按语言。</summary>
+    private static void AddNodesToZip(ZipArchive zip, IEnumerable<ScriptTreeItem> nodes, string prefix)
+    {
+        foreach (var node in nodes)
+        {
+            var name = SanitizeFileName(node.Name.Trim());
+            if (node.Kind == ScriptTreeItem.NodeKind.Script && node.Item != null)
+            {
+                var item = node.Item;
+                var content = BuildScriptWithDefaults(item);
+                var ext = LangToTempExt(item.Lang);
+                var baseName = StripTrailingExtension(item.Name.Trim());
+                var fileName = SanitizeFileName(string.IsNullOrEmpty(baseName) ? item.Lang : baseName) + "." + ext;
+                var entryName = string.IsNullOrEmpty(prefix) ? fileName : prefix + "/" + fileName;
+                var enc = GetExportEncoding(item.Lang);
+                var entry = zip.CreateEntry(entryName.Replace('\\', '/'));
+                // 用 StreamWriter 写出，会自动写入编码前导（如 UTF-8 BOM），与「单文件另存为」的
+                // File.WriteAllText 行为一致；若用 enc.GetBytes() 则不带 BOM，PowerShell 5.1 会把
+                // 无 BOM 的 .ps1 当 ANSI 解码，中文即乱码。
+                using (var s = entry.Open())
+                using (var sw = new StreamWriter(s, enc))
+                {
+                    sw.Write(content ?? "");
+                }
+            }
+            else if (node.Kind == ScriptTreeItem.NodeKind.Group)
+            {
+                var subPrefix = string.IsNullOrEmpty(prefix) ? name : prefix + "/" + name;
+                // 空目录也以「/」结尾的条目保留结构（zip 本身不支持实体空目录）
+                if (node.Children.Count == 0)
+                    zip.CreateEntry((subPrefix + "/").Replace('\\', '/'));
+                else
+                    AddNodesToZip(zip, node.Children, subPrefix);
+            }
+        }
+    }
+
+    /// <summary>读取脚本源文件并按其自身参数默认值代入占位符，得到可直接运行的文本（用于「另存为」导出）。</summary>
+    private static string BuildScriptWithDefaults(ScriptItem item)
+    {
+        string raw;
+        try
+        {
+            raw = File.ReadAllText(item.ResolvedPath, EncodingHelper.DetectFromFile(item.ResolvedPath));
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[MainViewModel] 读取脚本失败 {item.ResolvedPath}: {ex.Message}");
+            return string.Empty;
+        }
+        if (item.Params == null || item.Params.Count == 0) return raw;
+
+        var text = raw;
+        foreach (var p in item.Params)
+        {
+            var name = p.Name;
+            if (string.IsNullOrEmpty(name)) continue;
+            var val = p.Default ?? "";
+            var escaped = EscapeForLiteral(val, item.Lang);
+            var replacement = escaped.Replace("$", "$$");
+            var pattern = @"_p\{\s*" + Regex.Escape(name) + @"\s*\}";
+            text = Regex.Replace(text, pattern, replacement, RegexOptions.None);
+        }
+        return text;
+    }
+
+    #endregion
 
     private void CopyPreview()
     {
@@ -1497,8 +1640,9 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 导出「代入参数后」的完整脚本：文件名取 JSON 显示名（<see cref="ScriptItem.Name"/>），
-    /// 后缀按 lang 自动拼接（<see cref="LangToTempExt"/>），编码按语言保证导出后可直接运行。
+    /// 预览区「另存为」：保存当前选中脚本（用实时参数代入，与预览一致）。
+    /// 文件名取 JSON 显示名（<see cref="ScriptItem.Name"/>），后缀按 lang 自动拼接（<see cref="LangToTempExt"/>），
+    /// 编码按语言保证导出后可直接运行。
     /// <para>
     /// 编码策略（与「执行」临时文件保持一致，且对独立文件同样成立）：
     ///   - powershell / pwsh：UTF-8 带 BOM（Windows PowerShell 5.1 读无 BOM 的 .ps1 会按 ANSI 解码乱码）；
@@ -1508,11 +1652,32 @@ public class MainViewModel : ViewModelBase
     ///   - 其余语言（python/node/bash/java/go/rust）：UTF-8 无 BOM。
     /// </para>
     /// </summary>
-    private void ExportPreview()
+    private void SaveAsPreview()
     {
         if (SelectedScript == null) return;
         var script = SelectedScript;
-        var text = BuildParameterizedScript(lang: script.Lang);
+        var text = BuildParameterizedScript(lang: script.Lang); // 当前选中脚本的实时参数（与预览一致）
+        SaveScriptWithDialog(script, text);
+    }
+
+    /// <summary>树节点「另存为」（脚本类，传 ScriptItem）：按该脚本自身的参数默认值代入占位符后另存为。</summary>
+    public void SaveAsScript(ScriptItem script)
+    {
+        if (script == null) return;
+        var text = BuildScriptWithDefaults(script); // 该脚本自身的参数默认值
+        SaveScriptWithDialog(script, text);
+    }
+
+    /// <summary>树节点「另存为」（脚本类，传节点）：定位 ScriptItem 后调用 <see cref="SaveAsScript(ScriptItem)"/>。</summary>
+    public void SaveAsScript(ScriptTreeItem node)
+    {
+        if (node is not { Kind: ScriptTreeItem.NodeKind.Script, Item: not null } n) return;
+        SaveAsScript(n.Item);
+    }
+
+    /// <summary>把单个脚本另存为文件：文件名取 JSON 显示名 + lang 后缀，编码按语言保证可直接运行。</summary>
+    private void SaveScriptWithDialog(ScriptItem script, string text)
+    {
         if (string.IsNullOrEmpty(text))
         {
             ShowTemporaryStatus(Strings.StatusCopyEmpty);
@@ -1526,7 +1691,7 @@ public class MainViewModel : ViewModelBase
         var safeName = SanitizeFileName(string.IsNullOrEmpty(baseName) ? script.Lang : baseName);
         var defaultName = $"{safeName}.{ext}";
 
-        SaveTextWithDialog(defaultName, text, GetExportEncoding(script.Lang), Strings.DlgExportScriptDonePrefix);
+        SaveTextWithDialog(defaultName, text, GetExportEncoding(script.Lang), Strings.StatusSaveAsScriptDone);
     }
 
     /// <summary>用 SaveFileDialog 让用户选择保存位置，按指定编码写出文本（文件名/编码由调用方按语言决定）。</summary>
@@ -1550,11 +1715,11 @@ public class MainViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            ShowTemporaryStatus(string.Format(Strings.StatusExportFailFormat, ex.Message));
+            ShowTemporaryStatus(string.Format(Strings.StatusSaveAsFailFormat, ex.Message));
         }
     }
 
-    /// <summary>按语言决定导出编码（见 <see cref="ExportPreview"/> 注释）。</summary>
+    /// <summary>按语言决定导出编码（见 <see cref="SaveAsPreview"/> 注释）。</summary>
     private static Encoding GetExportEncoding(string lang)
     {
         if (IsPowerShellLang(lang))
