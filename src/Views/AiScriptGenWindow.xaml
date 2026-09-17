@@ -16,6 +16,16 @@
         </Grid>
 
         <StackPanel>
+            <!-- 脚本名称：创建/编辑时都可手填；生成完成后由 AI 取名回填（手动改过则保留） -->
+            <TextBlock x:Name="NameLabel" Text="{x:Static local:Strings.AiGenNameLabel}" Margin="0,0,0,4" />
+            <Grid>
+                <TextBox x:Name="NameBox" Height="30" Padding="6,4" Style="{StaticResource BaseTextBox}" TextChanged="NameBox_TextChanged" />
+                <TextBlock x:Name="NamePlaceholder" Text="{x:Static local:Strings.AiGenNamePlaceholder}"
+                           Foreground="{DynamicResource BrushPlaceholder}"
+                           Margin="9,6,9,6" IsHitTestVisible="False"
+                           Visibility="{Binding Text, ElementName=NameBox, Converter={x:Static local:StringEmptyToVisibilityConverter.Instance}}" />
+            </Grid>
+
             <!-- 脚本功能描述：语言与参数都在描述里一并说明，无需单独选择（编辑模式下由代码-behind 换成「修改要求」文案） -->
             <TextBlock x:Name="DescLabel" Text="{x:Static local:Strings.AiGenDescLabel}" Margin="0,0,0,4" />
             <Grid>

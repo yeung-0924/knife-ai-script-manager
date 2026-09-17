@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text;
 using System.Windows;
+using System.Windows.Controls;
 using AIScriptManager.Ai;
 using AIScriptManager.ViewModels;
 
@@ -46,6 +47,8 @@ public partial class AiScriptGenWindow : Window
     // 本会话已完成的对话轮数（首轮 = 1，追问逐次累加）；追问已用次数 = _roundsUsed - 1，
     // 对照 [ai] max_rounds（最大追问轮次，默认 0 = 不追问）判断能否继续；「接受并写入」后归零
     private int _roundsUsed;
+    // 名称框是否被用户手动改过：改过则生成完成回填 AI 取名时不覆盖（多轮追问不会冲掉用户改名）
+    private bool _nameEditedByUser;
 
     private bool IsEditMode => EditSeed != null;
 
@@ -62,6 +65,8 @@ public partial class AiScriptGenWindow : Window
             ScriptPreview.Text = EditSeed!.Content;
             _scriptId = EditSeed.Id;
             StatusText.Text = string.Format(Strings.AiStatusEditMode, EditSeed.Name);
+            // 编辑模式预填当前脚本名，用户可直接改
+            NameBox.Text = EditSeed.Name;
         }
         else
         {
@@ -138,6 +143,9 @@ public partial class AiScriptGenWindow : Window
             PreviewScriptLabel.Text = Strings.AiGenPreviewScript;
             ScriptPreview.Text = _result.Content;
             _roundsUsed++;
+            // 回填脚本名称：用户未手动改过才覆盖（手动改过则保留用户取名，避免多轮追问冲掉）
+            if (!_nameEditedByUser && !string.IsNullOrWhiteSpace(_result.Name))
+                NameBox.Text = _result.Name;
             // 已达追问上限（默认 0 = 首轮后即止）：状态栏提示收尾，按钮在 finally 中保持禁用
             StatusText.Text = _roundsUsed - 1 >= AppConfig.AiMaxRounds
                 ? string.Format(Strings.AiStatusRoundLimit, AppConfig.AiMaxRounds)
@@ -165,6 +173,10 @@ public partial class AiScriptGenWindow : Window
     private void BtnAccept_Click(object sender, RoutedEventArgs e)
     {
         if (_result == null) return;
+        // 以名称框的值为准（留空则保留 AI 取名，避免列表出现空名）
+        var finalName = NameBox.Text.Trim();
+        if (!string.IsNullOrEmpty(finalName))
+            _result.Name = finalName;
         try
         {
             if (IsEditMode)
@@ -182,6 +194,8 @@ public partial class AiScriptGenWindow : Window
                 ScriptPreview.Text = "";
                 DescBox.Clear();
                 DescPlaceholder.Text = Strings.AiGenDescPlaceholder;
+                NameBox.Text = "";
+                _nameEditedByUser = false;
                 BtnAccept.IsEnabled = false;
                 OwnerViewModel?.ReloadTree();
                 Close();
@@ -202,6 +216,8 @@ public partial class AiScriptGenWindow : Window
             ScriptPreview.Text = "";
             DescBox.Clear();
             DescPlaceholder.Text = Strings.AiGenDescPlaceholder;
+            NameBox.Text = "";
+            _nameEditedByUser = false;
             PreviewScriptLabel.Text = Strings.AiGenPreviewScript;
             BtnAccept.IsEnabled = false;
             // 新会话轮次从零起算，重新启用生成（可能刚因达到轮次上限被禁用）
@@ -214,5 +230,10 @@ public partial class AiScriptGenWindow : Window
         {
             StatusText.Text = string.Format(Strings.AiStatusGenFail, ex.Message);
         }
+    }
+
+    private void NameBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        _nameEditedByUser = true;
     }
 }
