@@ -1463,6 +1463,7 @@ public class MainViewModel : ViewModelBase
             AddExtension = true,
             DefaultExt = "zip"
         };
+        ApplyDefaultSaveDir(dlg);
         if (dlg.ShowDialog() != true) return; // 用户取消
 
         if (File.Exists(dlg.FileName)) File.Delete(dlg.FileName);
@@ -1505,6 +1506,7 @@ public class MainViewModel : ViewModelBase
             AddExtension = true,
             DefaultExt = "zip"
         };
+        ApplyDefaultSaveDir(dlg);
         if (dlg.ShowDialog() != true) return;
 
         if (File.Exists(dlg.FileName)) File.Delete(dlg.FileName);
@@ -1694,6 +1696,13 @@ public class MainViewModel : ViewModelBase
         SaveTextWithDialog(defaultName, text, GetExportEncoding(script.Lang), Strings.StatusSaveAsScriptDone);
     }
 
+    /// <summary>「另存为」对话框的默认目录：当前用户的下载目录（不存在则不改动，交给系统默认）。</summary>
+    private static void ApplyDefaultSaveDir(SaveFileDialog dlg)
+    {
+        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+        if (Directory.Exists(dir)) dlg.InitialDirectory = dir;
+    }
+
     /// <summary>用 SaveFileDialog 让用户选择保存位置，按指定编码写出文本（文件名/编码由调用方按语言决定）。</summary>
     private void SaveTextWithDialog(string defaultFileName, string content, Encoding encoding, string successPrefix)
     {
@@ -1709,6 +1718,7 @@ public class MainViewModel : ViewModelBase
                 AddExtension = true,
                 DefaultExt = string.IsNullOrEmpty(ext) ? "txt" : ext
             };
+            ApplyDefaultSaveDir(dlg);
             if (dlg.ShowDialog() != true) return; // 用户取消
             File.WriteAllText(dlg.FileName, content ?? string.Empty, encoding);
             ShowTemporaryStatus($"{successPrefix}{dlg.FileName}");
