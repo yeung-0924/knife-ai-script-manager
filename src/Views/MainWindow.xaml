@@ -26,16 +26,29 @@
     </Window.Resources>
 
     <DockPanel>
-        <!-- 顶部工具栏：文件 / 设置 下拉菜单（与脚本列表原有的「打开」「导出」按钮同源，复用其命令与图标） -->
+        <!-- 顶部工具栏：文件 / 设置 下拉菜单。
+             ⚠️ 图标配色沿用本工具栏的深色描边 #202020（folder-open / settings / download-dark），
+                与右键菜单、预览工具条的 #808080 是两套配色，勿混用（download-dark.svg 即为此准备的深色变体）。 -->
         <Border DockPanel.Dock="Top" Background="{DynamicResource BrushToolbarBg}"
                 BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1">
             <Menu Background="Transparent" Foreground="{DynamicResource BrushText}" Padding="4,2">
                 <MenuItem Header="{x:Static local:Strings.MenuFile}">
-                    <MenuItem Command="{Binding OpenFolderCommand}"
-                              Header="{x:Static local:Strings.BtnOpen}">
+                    <!-- 重载脚本文件：首步选文件在 VM，二次确认（整体替换脚本树）在 Click 处理器里，故不用 Command 绑定；
+                         IsEnabled 绑 CanReloadScriptFile，保留旧「打开」按钮「执行中禁用」的行为。 -->
+                    <MenuItem Click="MenuReloadScriptFile_Click"
+                              IsEnabled="{Binding CanReloadScriptFile}"
+                              Header="{x:Static local:Strings.BtnReload}">
                         <MenuItem.Icon>
                             <svgc:SvgViewbox Width="13" Height="13"
                                              UriSource='pack://application:,,,/assets/images/button/folder-open.svg' />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <!-- 全部另存为：整棵脚本树打包 zip（等同对索引所在目录做另存为），无脚本时置灰 -->
+                    <MenuItem Command="{Binding SaveAsAllCommand}"
+                              Header="{x:Static local:Strings.BtnSaveAsAll}">
+                        <MenuItem.Icon>
+                            <svgc:SvgViewbox Width="13" Height="13"
+                                             UriSource='pack://application:,,,/assets/images/button/download-dark.svg' />
                         </MenuItem.Icon>
                     </MenuItem>
                 </MenuItem>

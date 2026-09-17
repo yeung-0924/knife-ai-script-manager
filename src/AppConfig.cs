@@ -19,7 +19,7 @@ namespace AIScriptManager;
 ///   history_dir = 脚本变更历史目录（默认 history；每次保存脚本后按脚本 id 分目录留一份副本）
 ///   default_timeout = 脚本默认执行超时（秒，0/留空=不限制）
 /// 路径规则：留空/被注释则使用默认值；填相对路径则相对 exe 目录解析；填绝对路径（含 UNC 如 \\Mac\Home\...）则直接使用。
-/// script_index_file 是「文件▸打开」与「设置▸编辑配置▸脚本索引文件」的唯一共同出口，二者写同一键、效果一致。
+/// script_index_file 是「文件▸重载脚本文件」与「设置▸编辑配置▸脚本索引文件」的唯一共同出口，二者写同一键、效果一致。
 /// 后续新增配置项，在此追加对应的静态属性并从 Sections 取值即可。
 /// </summary>
 public static class AppConfig
@@ -50,7 +50,7 @@ public static class AppConfig
     /// <summary>
     /// 脚本索引文件（指向 index.json）的完整路径，来自配置的 [script] script_index_file。
     /// 留空/注释则默认 exe 同级 script\index.json；相对路径相对 exe 目录解析；绝对路径（含 UNC）直接使用。
-    /// 该项是「文件▸打开」与「设置▸编辑配置▸脚本索引文件」的唯一共同出口，二者写同一键、效果一致。
+    /// 该项是「文件▸重载脚本文件」与「设置▸编辑配置▸脚本索引文件」的唯一共同出口，二者写同一键、效果一致。
     /// </summary>
     public static string ScriptIndexFilePath
     {
@@ -183,7 +183,7 @@ public static class AppConfig
     #endregion
 
     /// <summary>
-    /// 运行时持久化「文件▸打开」选择的脚本索引文件到 config.ini 的 [script] script_index_file（存绝对路径）。
+    /// 运行时持久化「文件▸重载脚本文件」选择的脚本索引文件到 config.ini 的 [script] script_index_file（存绝对路径）。
     /// 与「设置▸编辑配置▸脚本索引文件」写的是同一个键，二者效果一致；保留其它 section / key / 注释与顺序；
     /// 文件或 [script] 节不存在则创建。同时更新内存缓存，使同进程内 ScriptIndexFilePath 即时反映新值。
     /// 写入失败仅记调试日志、不抛异常。

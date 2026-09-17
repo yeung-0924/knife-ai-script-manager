@@ -32,7 +32,7 @@ public class MainViewModel : ViewModelBase
     private const double TopRegionHeight = 400;
     #endregion
 
-    /// <summary>当前加载的脚本索引 json 路径：默认 exe 同级 script/index.json；可由 config.ini 的 [script] script_index_file 配置，或通过「打开」按钮切换。</summary>
+    /// <summary>当前加载的脚本索引 json 路径：默认 exe 同级 script/index.json；可由 config.ini 的 [script] script_index_file 配置，或通过「文件▸重载脚本文件」切换。</summary>
     private string _loadedIndexPath = ConfigLoader.ScriptIndexJson;
 
     #region 按脚本路径缓存的运行态（参数值 + 日志）
@@ -211,9 +211,14 @@ public class MainViewModel : ViewModelBase
         private set
         {
             if (!SetProperty(ref _isRunning, value)) return;
+            OnPropertyChanged(nameof(CanReloadScriptFile));
             CommandManager.InvalidateRequerySuggested();
         }
     }
+
+    /// <summary>是否可重载脚本文件：执行中禁止（整体替换脚本树会让正在运行的脚本失去归属）。
+    /// 供顶部「文件▸重载脚本文件」菜单项绑定 IsEnabled（对应旧「打开」按钮 CanExecute 的 !IsRunning）。</summary>
+    public bool CanReloadScriptFile => !IsRunning;
 
     public bool CanRun =>
         SelectedScript != null
@@ -394,7 +399,7 @@ public class MainViewModel : ViewModelBase
     public RelayCommand ClearLogCommand { get; }
     public RelayCommand CopyLogCommand { get; }
     public RelayCommand ToggleExpandAllCommand { get; }
-    public RelayCommand OpenFolderCommand { get; }
+    public RelayCommand SaveAsAllCommand { get; }
     #endregion
 
     public MainViewModel()
@@ -412,7 +417,7 @@ public class MainViewModel : ViewModelBase
         _elapsedTimer.Tick += (_, _) => UpdateElapsedText();
 
         RuntimeConfig.EnsureAutoDetected();
-        // 启动加载配置的脚本索引：取 [script] script_index_file（默认内置 script/index.json）；「打开」与配置编辑器写同一键
+        // 启动加载配置的脚本索引：取 [script] script_index_file（默认内置 script/index.json）；「重载脚本文件」与配置编辑器写同一键
         LoadTreeFromIndex(ResolveStartupIndex());
         RefreshRuntimeStatus();
 
@@ -427,7 +432,7 @@ public class MainViewModel : ViewModelBase
         ResetParamsCommand = new RelayCommand(_ => ResetParams(), _ => SelectedScript != null);
         ClearLogCommand = new RelayCommand(_ => ClearLog(), _ => SelectedScript != null && Logs.Count > 0);
         ToggleExpandAllCommand = new RelayCommand(_ => ToggleExpandAll());
-        OpenFolderCommand = new RelayCommand(_ => OpenScriptFile(), _ => !IsRunning);
+        SaveAsAllCommand = new RelayCommand(_ => SaveAsRoot(), _ => ScriptTreeHasScripts());
     }
 
     private void CopyLog()
@@ -473,36 +478,44 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>
     /// 解析启动时应加载的索引 json：取配置 [script] script_index_file（默认 exe 同级 script\index.json）。
-    /// 该值由「文件▸打开」与「设置▸编辑配置▸脚本索引文件」共同维护，二者写同一键、效果一致。
+    /// 该值由「文件▸重载脚本文件」与「设置▸编辑配置▸脚本索引文件」共同维护，二者写同一键、效果一致。
     /// </summary>
     private static string ResolveStartupIndex() => AppConfig.ScriptIndexJsonPath;
 
     /// <summary>
     /// 配置编辑器保存后调用：按当前 [script] script_index_file 重新渲染左侧目录树。
-    /// 与「文件▸打开」最终走的是同一条加载路径（<see cref="LoadTreeFromIndex"/>），
+    /// 与「文件▸重载脚本文件」最终走的是同一条加载路径（<see cref="LoadTreeFromIndex"/>），
     /// 故在配置里改了脚本索引文件并保存后，目录树会立即按新索引重建。
     /// </summary>
     public void ReloadTree() => LoadTreeFromIndex(ResolveStartupIndex());
 
     /// <summary>
-    /// 「打开」按钮：弹出文件选择框，直接选择脚本索引文件 index.json（结构同内置 script 目录的 index.json）。
-    /// 选中非有效脚本索引（解析为空）时，目录树渲染为空（符合「渲染不出来即可」的预期，不弹窗报错），且不记忆该选择。
+    /// 「文件▸重载脚本文件」第一步：弹出文件选择框，选择脚本索引文件 index.json
+    /// （结构同内置 script 目录的 index.json）。返回所选文件完整路径；用户取消返回 null。
+    /// ⚠️ 只负责选文件：重载会用所选索引整体替换当前脚本树，属破坏性操作，
+    /// 二次确认由 View（MainWindow.MenuReloadScriptFile_Click）负责，确认后才调 <see cref="ReloadScriptFile"/>。
     /// </summary>
-    private void OpenScriptFile()
+    public string? PickScriptIndexFile()
     {
         // 初始定位到当前已加载索引所在目录，连续打开同类文件更顺手
         var dlg = new OpenFileDialog
         {
-            Title = Strings.DlgOpenScriptFileTitle,
+            Title = Strings.DlgReloadScriptFileTitle,
             Filter = "脚本索引 (index.json)|index.json|JSON 文件 (*.json)|*.json|所有文件 (*.*)|*.*",
             CheckFileExists = true
         };
         if (!string.IsNullOrWhiteSpace(_loadedIndexPath) && File.Exists(_loadedIndexPath))
             dlg.InitialDirectory = Path.GetDirectoryName(_loadedIndexPath);
 
-        if (dlg.ShowDialog() != true) return; // 用户取消
+        return dlg.ShowDialog() == true ? dlg.FileName : null;
+    }
 
-        var indexPath = dlg.FileName;
+    /// <summary>
+    /// 「文件▸重载脚本文件」第二步（View 二次确认通过后调用）：按所选索引整体替换当前脚本树。
+    /// 选中非有效脚本索引（解析为空）时，目录树渲染为空（符合「渲染不出来即可」的预期，不弹窗报错），且不记忆该选择。
+    /// </summary>
+    public void ReloadScriptFile(string indexPath)
+    {
         // 先校验是否为有效脚本索引（解析出节点）再决定是否记忆，避免把随机 json 记住导致重启后空树
         var items = ConfigLoader.LoadIndex(indexPath);
         LoadTreeFromIndex(indexPath);
@@ -511,11 +524,11 @@ public class MainViewModel : ViewModelBase
             // 持久化到 config.ini 的 [script] script_index_file，使重启后仍自动加载该索引文件。
             // 与「设置▸编辑配置▸脚本索引文件」写的是同一个键，效果一致。
             AppConfig.SetScriptIndexFile(indexPath);
-            ShowTemporaryStatus(Strings.StatusOpenScriptFileDone);
+            ShowTemporaryStatus(Strings.StatusReloadScriptFileDone);
         }
         else
         {
-            ShowTemporaryStatus(Strings.StatusOpenScriptFileInvalid);
+            ShowTemporaryStatus(Strings.StatusReloadScriptFileInvalid);
         }
     }
 
@@ -1489,7 +1502,22 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    /// <summary>根层级（面板空白）「另存为」：把整棵脚本树打包成 zip（顶层目录名为 scripts）。</summary>
+    /// <summary>zip 内根目录名 = 当前索引文件所在目录名（内置 script 目录 → script）；取不到时退回 script。</summary>
+    private string RootExportFolderName
+    {
+        get
+        {
+            var dir = string.IsNullOrWhiteSpace(_loadedIndexPath) ? null : Path.GetDirectoryName(_loadedIndexPath);
+            var name = string.IsNullOrWhiteSpace(dir)
+                ? null
+                : Path.GetFileName(dir!.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            return SanitizeFileName(string.IsNullOrEmpty(name) ? "script" : name);
+        }
+    }
+
+    /// <summary>「文件▸全部另存为」/ 根层级（面板空白）「另存为」：把整棵脚本树打包成一个 zip
+    /// （等同于对索引所在目录做「另存为」，zip 内根目录名即该目录名，默认 script）。
+    /// 脚本与目录名取自 index.json 显示名、编码按语言，与目录节点的「另存为」完全同源。</summary>
     public void SaveAsRoot()
     {
         if (ScriptTree == null || ScriptTree.Count == 0 || !ScriptTreeHasScripts())
@@ -1498,10 +1526,11 @@ public class MainViewModel : ViewModelBase
             return;
         }
 
+        var root = RootExportFolderName;
         var dlg = new SaveFileDialog
         {
             Title = Strings.DlgExportZipTitle,
-            FileName = "scripts.zip",
+            FileName = $"{root}.zip",
             Filter = "压缩文件 (*.zip)|*.zip|所有文件 (*.*)|*.*",
             AddExtension = true,
             DefaultExt = "zip"
@@ -1515,7 +1544,7 @@ public class MainViewModel : ViewModelBase
         {
             using (var zip = ZipFile.Open(dlg.FileName, ZipArchiveMode.Create))
             {
-                AddNodesToZip(zip, ScriptTree, "scripts");
+                AddNodesToZip(zip, ScriptTree, root);
             }
             ShowTemporaryStatus(string.Format(Strings.StatusSaveAsDone, dlg.FileName));
             Process.Start(new ProcessStartInfo

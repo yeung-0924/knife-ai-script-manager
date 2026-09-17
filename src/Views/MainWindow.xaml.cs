@@ -204,6 +204,21 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>顶部「文件 ▸ 重载脚本文件」：选定索引文件后二次确认（重载会用所选索引整体替换当前脚本树），
+    /// 确认通过才真正加载。执行中该菜单项已由 CanReloadScriptFile 置灰，此处不再重复校验。</summary>
+    private void MenuReloadScriptFile_Click(object sender, RoutedEventArgs e)
+    {
+        var indexPath = _vm.PickScriptIndexFile();
+        if (indexPath == null) return; // 用户取消选择文件
+
+        if (MessageBox.Show(this, string.Format(Strings.DlgReloadScriptFileConfirm, indexPath),
+                Strings.TitleWindow, MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                MessageBoxResult.No) != MessageBoxResult.Yes)
+            return; // 用户放弃重载，保留当前脚本树
+
+        _vm.ReloadScriptFile(indexPath);
+    }
+
     /// <summary>顶部「设置 ▸ 编辑配置」：打开 config.ini 结构化编辑弹窗（模态， Owner=主窗口）。</summary>
     private void MenuEditConfig_Click(object sender, RoutedEventArgs e)
     {

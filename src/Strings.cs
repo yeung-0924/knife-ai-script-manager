@@ -20,9 +20,10 @@ public static class Strings
     #endregion
 
     #region 按钮
-    public const string BtnOpen = "打开";
+    public const string BtnReload = "重载脚本文件";
     public const string BtnSave = "保存";
     public const string BtnSaveAs = "另存为";
+    public const string BtnSaveAsAll = "全部另存为";
     public const string BtnReset = "重置";
     public const string BtnDefault = "默认值";
     public const string BtnCopy = "复制";
@@ -156,9 +157,9 @@ public static class Strings
     public const string StatusLogCleared = "已清空执行日志";
     public const string StatusParamsReset = "已重置为默认值";
     public const string StatusRuntimeAutoSet = "已自动获取可执行文件（运行时目录或环境变量）";
-    // 「打开」脚本索引文件的反馈（状态栏轻提示，不弹窗）：成功加载并记住 / 所选文件非有效脚本索引
-    public const string StatusOpenScriptFileDone = "已打开脚本文件（已记住，重启后自动加载）";
-    public const string StatusOpenScriptFileInvalid = "所选文件不是有效的脚本索引（index.json）";
+    // 「重载脚本文件」的反馈（状态栏轻提示，不弹窗）：成功加载并记住 / 所选文件非有效脚本索引
+    public const string StatusReloadScriptFileDone = "已重载脚本文件（已记住，重启后自动加载）";
+    public const string StatusReloadScriptFileInvalid = "所选文件不是有效的脚本索引（index.json）";
     public const string StatusRuntimeAutoFail = "运行时目录与环境变量中均未检测到该语言的可执行文件，请配置 runtime 目录或自行选择";
     #endregion
 
@@ -185,7 +186,10 @@ public static class Strings
     public const string DlgPickFileFilter = "所有文件 (*.*)|*.*";
     public const string DlgPickFolderTitle = "请选择{0}";
     public const string DlgExportZipTitle = "另存为压缩包";
-    public const string DlgOpenScriptFileTitle = "选择脚本索引文件（index.json）";
+    public const string DlgReloadScriptFileTitle = "选择脚本索引文件（index.json）";
+    // 重载是破坏性操作（用所选索引整体替换当前脚本树），选定文件后由 MainWindow 弹二次确认。
+    // {0} = 所选索引文件完整路径
+    public const string DlgReloadScriptFileConfirm = "确定重载脚本文件吗？\n\n将加载：\n{0}\n\n当前列表中的全部脚本与目录都会被整体替换，此操作不可撤销。";
     #endregion
 
     #region 执行日志（输出到日志面板与 log/ 文件，用户可见）

@@ -18,7 +18,7 @@ public static class ScriptIndexStore
 {
     private static readonly JsonSerializerOptions Pretty = new() { WriteIndented = true };
 
-    /// <summary>唯一索引文件完整路径（动态取 AppConfig，使「文件▸打开」切换索引后即时生效）。</summary>
+    /// <summary>唯一索引文件完整路径（动态取 AppConfig，使「文件▸重载脚本文件」切换索引后即时生效）。</summary>
     public static string IndexPath => ConfigLoader.ScriptIndexJson;
 
     /// <summary>生成新的条目 id（GUID，标准带连字符格式）。</summary>

@@ -180,7 +180,7 @@ public partial class ConfigEditorWindow : Window
             AppConfig.Reload();
             // cache_dir 迁移 + 标准目录图标刷新：使目录类配置改动保存即生效，无需重启
             ApplyLiveEffects();
-            // 若脚本索引文件被改动，左侧目录树需按新索引重新渲染（与「文件▸打开」同源）
+            // 若脚本索引文件被改动，左侧目录树需按新索引重新渲染（与「文件▸重载脚本文件」同源）
             if (!string.Equals(oldIndex, AppConfig.ScriptIndexJsonPath, System.StringComparison.OrdinalIgnoreCase))
                 OwnerViewModel?.ReloadTree();
             // 保存成功后关闭弹窗
@@ -308,7 +308,7 @@ public class ConfigRow : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    /// <summary>浏览按钮图标：选文件(file)用 folder-open-dot，选目录(folder)用 folder-open（与工具栏「打开」一致）。</summary>
+    /// <summary>浏览按钮图标：选文件(file)用 folder-open-dot，选目录(folder)用 folder-open（与工具栏「重载脚本文件」一致）。</summary>
     public System.Uri BrowseIconUri =>
         Kind == "file"
             ? new System.Uri("pack://application:,,,/assets/images/button/folder-open-dot.svg", System.UriKind.Absolute)

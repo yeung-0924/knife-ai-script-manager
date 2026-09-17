@@ -7,7 +7,7 @@ namespace AIScriptManager;
 /// <summary>
 /// 负责定位脚本目录、读取并校验脚本索引 json（顶层为数组）。
 /// 脚本索引文件由 exe 同级的 config/config.ini 的 [script] script_index_file 配置（默认 script\index.json）；
-/// 「文件▸打开」与「设置▸编辑配置▸脚本索引文件」写的是同一个键、效果一致；找不到则不加载目录树。
+/// 「文件▸重载脚本文件」与「设置▸编辑配置▸脚本索引文件」写的是同一个键、效果一致；找不到则不加载目录树。
 /// 脚本来源为单一目录，随 exe 分发、用户可编辑，不再内置进 exe。
 /// </summary>
 public static class ConfigLoader
