@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:AIScriptManager"
         xmlns:svgc="http://sharpvectors.codeplex.com/svgc/"
-        Title="{x:Static local:Strings.TitleAiGenerate}"
+        Title="AI 脚本编辑器"
         Width="760" SizeToContent="Height"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         Background="{DynamicResource BrushWindowBg}">
@@ -21,7 +21,7 @@
                  TextChanged 仅用于刷新「接受并写入」可用性与必填提示，不再有 AI 回填。 -->
             <TextBlock x:Name="NameLabel" Text="{x:Static local:Strings.AiGenNameLabel}" Margin="0,0,0,4" FontWeight="Bold" />
             <Grid>
-                <TextBox x:Name="NameBox" Height="32" Padding="6,7" Style="{StaticResource BaseTextBox}" TextChanged="NameBox_TextChanged" />
+                <TextBox x:Name="NameBox" Height="32" Padding="6,7" Style="{StaticResource BaseTextBox}" TextChanged="NameBox_TextChanged" Margin="0,0,0,8" />
                 <TextBlock x:Name="NamePlaceholder" Text="{x:Static local:Strings.AiGenNamePlaceholder}"
                            Foreground="{DynamicResource BrushPlaceholder}"
                            Margin="9,8,9,8" TextWrapping="Wrap" IsHitTestVisible="False"
@@ -34,7 +34,7 @@
                      与占位符 Margin(9,8,9,8) 精确对齐（占位符消失→正文显示，位置不跳动） -->
                 <TextBox x:Name="DescBox" Height="120" TextWrapping="Wrap" AcceptsReturn="True"
                          VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
-                         Padding="6,7" Style="{StaticResource BaseTextBox}" />
+                         Padding="6,7" Style="{StaticResource BaseTextBox}" Margin="0,0,0,4" />
                 <TextBlock x:Name="DescPlaceholder" Text="{x:Static local:Strings.AiGenDescPlaceholder}"
                            Foreground="{DynamicResource BrushPlaceholder}"
                            Margin="9,8,9,8" TextWrapping="Wrap" IsHitTestVisible="False"

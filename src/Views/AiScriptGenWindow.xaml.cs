@@ -71,7 +71,15 @@ public partial class AiScriptGenWindow : Window
     public AiScriptGenWindow()
     {
         InitializeComponent();
+        // 模式相关初始化（标题 / 预填名称 / 预览现状）必须放在 Loaded：本窗口由调用方用对象初始化器
+        //   new AiScriptGenWindow { EditSeed = seed, ... } 构造，C# 语义是先跑无参构造函数、再应用初始化器，
+        //   故构造函数体内 EditSeed 尚为 null，IsEditMode 恒为假——编辑分支是死代码、标题会被误设为「创建脚本」。
+        //   Loaded 在属性全部赋值、ShowDialog 之前触发，此时才是正确的判断时机。
+        Loaded += OnLoaded;
+    }
 
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
         if (IsEditMode)
         {
             Title = Strings.TitleAiEdit;
