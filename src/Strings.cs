@@ -54,8 +54,8 @@ public static class Strings
     public const string TitleAiEdit = "编辑脚本";
     public const string TitleAiGenerate = "生成脚本";
     public const string AiGenDescLabel = "脚本功能描述";
-    public const string AiGenNameLabel = "脚本名称（必填）";
-    public const string AiGenNamePlaceholder = "脚本在列表中的显示名（必填，只能手动填写；AI 不代取名）";
+    public const string AiGenNameLabel = "脚本名称";
+    public const string AiGenNamePlaceholder = "脚本在列表中的显示名（只能手动填写；AI 不代取名）";
     // 占位提示 = 一段可直接照抄的完整示例：示范「语言 + 功能 + 参数（类型/必填/默认值/选项）」的写法，并列出可选语言与参数类型，让用户一眼知道本功能能做什么。\n 为换行，TextBlock 会分两段显示。
     public const string AiGenDescPlaceholder = "请用 python 帮我实现「批量重命名」脚本：读取参数「目录」（folder 类型，必填）下的全部文件，按「前缀」（text 类型，如 img_）加序号依次重命名；再用「起始序号」（text 类型，默认 1）和「是否处理子目录」（select 类型，选项 是/否，默认 否）两个参数控制行为；执行完成后打印新旧文件名对照表。\n（语言也可写 node / java / go / rust / powershell / pwsh / cmd / bash；参数可标注 text、folder、file、select 类型，并说明是否必填、默认值与可选项。描述越具体，生成越准。）";
     public const string AiGenEditLabel = "修改要求（要改什么，越具体越好）";

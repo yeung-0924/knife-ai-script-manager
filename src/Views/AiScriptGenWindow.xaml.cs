@@ -2,6 +2,7 @@ using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using AIScriptManager.Ai;
 using AIScriptManager.ViewModels;
 
@@ -104,6 +105,20 @@ public partial class AiScriptGenWindow : Window
             StatusText.Text = Strings.AiStatusNoApi;
             BtnGenerate.IsEnabled = false;
         }
+
+        // 名称框空值即红框（必填校验，不再用「必填」字样）：编辑模式已预填故为常态边框
+        UpdateNameBorder();
+    }
+
+    /// <summary>
+    /// 必填校验：脚本名称为空时用红框提示（BrushRequired），填写后恢复常规边框（BrushBorder）。
+    /// 由 Loaded 与名称框 TextChanged 调用——替代原标签/占位符里的「必填」字样。
+    /// </summary>
+    private void UpdateNameBorder()
+    {
+        bool empty = string.IsNullOrWhiteSpace(NameBox.Text);
+        NameBox.BorderBrush = (Brush)FindResource(empty ? "BrushRequired" : "BrushBorder");
+        NameBox.BorderThickness = empty ? new Thickness(2) : new Thickness(1);
     }
 
     private async void BtnGenerate_Click(object sender, RoutedEventArgs e)
@@ -286,6 +301,8 @@ public partial class AiScriptGenWindow : Window
     {
         if (_suppressNameChanged) return;
         RefreshAcceptEnabled();
+        // 名称空值红框 / 有值常态边框（必填校验）
+        UpdateNameBorder();
         if (string.IsNullOrWhiteSpace(NameBox.Text))
         {
             if (_result != null) StatusText.Text = Strings.AiStatusNeedName;
