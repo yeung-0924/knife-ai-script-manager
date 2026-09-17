@@ -54,8 +54,8 @@ public static class Strings
     public const string TitleAiEdit = "编辑脚本";
     public const string TitleAiGenerate = "生成脚本";
     public const string AiGenDescLabel = "脚本功能描述";
-    public const string AiGenNameLabel = "脚本名称";
-    public const string AiGenNamePlaceholder = "脚本在列表中的显示名（生成后可由 AI 取名，也可手动修改）";
+    public const string AiGenNameLabel = "脚本名称（必填）";
+    public const string AiGenNamePlaceholder = "脚本在列表中的显示名（必填，只能手动填写；AI 不代取名）";
     // 占位提示 = 一段可直接照抄的完整示例：示范「语言 + 功能 + 参数（类型/必填/默认值/选项）」的写法，并列出可选语言与参数类型，让用户一眼知道本功能能做什么。\n 为换行，TextBlock 会分两段显示。
     public const string AiGenDescPlaceholder = "请用 python 帮我实现「批量重命名」脚本：读取参数「目录」（folder 类型，必填）下的全部文件，按「前缀」（text 类型，如 img_）加序号依次重命名；再用「起始序号」（text 类型，默认 1）和「是否处理子目录」（select 类型，选项 是/否，默认 否）两个参数控制行为；执行完成后打印新旧文件名对照表。\n（语言也可写 node / java / go / rust / powershell / pwsh / cmd / bash；参数可标注 text、folder、file、select 类型，并说明是否必填、默认值与可选项。描述越具体，生成越准。）";
     public const string AiGenEditLabel = "修改要求（要改什么，越具体越好）";
@@ -67,13 +67,14 @@ public static class Strings
     public const string BtnAiAccept = "接受并写入";
     public const string AiStatusNoApi = "未配置 AI API：请到「设置 ▸ 编辑配置」填写 API 密钥 / 地址 / 模型";
     public const string AiStatusNeedDesc = "请先在描述框填写内容。";
+    public const string AiStatusNeedName = "脚本名称必填：请在上方「脚本名称」框手动填写（AI 不会代取名），再点「接受并写入」。";
     public const string AiStatusEditMode = "编辑现有脚本「{0}」：输入修改要求后点「生成」，预览无误再点「接受并写入」";
     public const string AiStatusGenerating = "正在生成脚本…";
     public const string AiStatusStreaming = "正在生成… 已接收 {0} 字（预览区实时显示模型原始回复，完成后自动解析）";
     public const string AiGenStreamingLabel = "模型实时回复（生成中，完成后自动解析为下方脚本）";
     // 追问态（多轮对话）的占位提示。
     public const string AiGenFollowUpPlaceholder = "可继续输入修改要求（多轮对话）：把语言换成 go；参数「关键字」改为必填；输出再追加一列汇总。\n（每一轮都基于上一轮的结果修改，直到点「接受并写入」为止。）";
-    public const string AiStatusGenerated = "已生成，请检查预览后点「接受并写入」";
+    public const string AiStatusGenerated = "已生成：请确认「脚本名称」已填写（必填）、检查预览后点「接受并写入」";
     public const string AiStatusWriteDone = "已写入并刷新脚本列表";
     public const string AiStatusEditDone = "已覆盖脚本文件并更新索引条目";
     public const string AiStatusGenFail = "生成失败：{0}";

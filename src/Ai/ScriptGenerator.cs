@@ -11,6 +11,11 @@ public class AiGeneratedScript
     /// <summary>条目唯一 id（GUID）。创建流程落盘前由 <see cref="ScriptGenerator.BuildEntry"/> 补齐；编辑模式沿用原条目的 id。</summary>
     public string? Id { get; set; }
 
+    /// <summary>
+    /// 界面显示名。**由用户在「AI 脚本编辑器」窗口手动填写（必填），AI 不参与取名**——
+    /// system prompt 已明确要求模型不要返回 name 字段，<see cref="ScriptGenerator.Parse"/> 也随之忽略它，
+    /// 落库前由窗口用名称框的值覆盖。
+    /// </summary>
     public string Name { get; set; } = "";
     /// <summary>AI 建议的文件名（仅供参考，程序不使用它命名；物理文件按「{id}」无扩展名存储）。</summary>
     public string FileName { get; set; } = "";
@@ -55,9 +60,8 @@ public static class ScriptGenerator
         sb.AppendLine("1. 严格遵循上方「AIScriptManager 脚本编写指南」的全部约定：占位符 _p{NAME}、脚本头部「更新时间」行、UTF-8 无 BOM、可选 ANSI 颜色、段标题等（物理文件由程序按 UUID 无扩展名存储，lang 决定解释器，无需在文件命名上纠结）。");
         sb.AppendLine("2. 脚本内所有可配置项都必须写成 _p{参数名} 占位符，并在返回 JSON 的 params 中声明对应参数；占位符名字必须与 params[].name 字面完全一致（全大写 + 下划线）。");
         sb.AppendLine("3. 若用户指定了语言则使用该语言，否则选择最合适的语言。只从以下 9 种中选择：powershell / pwsh / cmd / bash / java / node / python / go / rust。");
-        sb.AppendLine("4. 只返回一个 JSON 对象（不要任何解释文字、不要 markdown 代码块、不要 ``` 包裹），结构如下：");
+        sb.AppendLine("4. 只返回一个 JSON 对象（不要任何解释文字、不要 markdown 代码块、不要 ``` 包裹），结构如下（**不要包含 name 字段**：脚本名称由用户在界面上手动填写、必填，AI 不得代取名，即使返回 name 程序也会忽略）：");
         sb.AppendLine(@"{
-  ""name"": ""界面显示名"",
   ""file_name"": ""（可选，本程序不使用；脚本文件名由程序按 UUID 无扩展名自动生成）"",
   ""lang"": ""python"",
   ""description"": ""一句话说明脚本用途"",
@@ -73,7 +77,7 @@ public static class ScriptGenerator
     }
 
     /// <summary>追问消息统一追加的后缀：提醒模型仍返回完整 JSON 对象（多轮对话时防止只回改动说明）。</summary>
-    public const string FollowUpSuffix = "\n\n请只返回 JSON（返回完整对象，包含全部字段，不要只给改动说明）。";
+    public const string FollowUpSuffix = "\n\n请只返回 JSON（返回完整对象，不要只给改动说明；不要返回 name 字段——脚本名称由用户在界面手动填写）。";
 
     /// <summary>
     /// 构建首轮用户消息：创建模式为需求描述；编辑模式把现有脚本内容与参数一并交给 AI 按描述改写。
@@ -135,7 +139,9 @@ public static class ScriptGenerator
 
         var result = new AiGeneratedScript
         {
-            Name = node["name"]?.GetValue<string>() ?? "未命名脚本",
+            // 名称不由 AI 提供：脚本名称在界面上由用户手动填写（必填），
+            // 故此处固定留空（即使模型仍返回 name 也忽略），落库前由 AiScriptGenWindow 用名称框的值覆盖
+            Name = "",
             FileName = node["file_name"]?.GetValue<string>() ?? node["fileName"]?.GetValue<string>() ?? "",
             Lang = node["lang"]?.GetValue<string>() ?? "python",
             Description = node["description"]?.GetValue<string>() ?? "",

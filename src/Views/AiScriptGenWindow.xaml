@@ -16,7 +16,9 @@
         </Grid>
 
         <StackPanel>
-            <!-- 脚本名称：生成后由 AI 取名，可手动覆盖（创建/编辑模式均生效） -->
+            <!-- 脚本名称：仅由用户手动填写（必填）——AI 不参与取名（system prompt 已禁止模型返回 name 字段，
+                 解析时也一律忽略）。编辑模式由代码-behind 预填现有名称，用户可直接改；
+                 TextChanged 仅用于刷新「接受并写入」可用性与必填提示，不再有 AI 回填。 -->
             <TextBlock x:Name="NameLabel" Text="{x:Static local:Strings.AiGenNameLabel}" Margin="0,0,0,4" FontWeight="Bold" />
             <Grid>
                 <TextBox x:Name="NameBox" Height="32" Padding="6,7" Style="{StaticResource BaseTextBox}" TextChanged="NameBox_TextChanged" />

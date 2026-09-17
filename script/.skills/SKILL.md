@@ -29,6 +29,11 @@ AIScriptManager **只**加载 `script/index.json`（嵌套数组，用 `children
 | `admin` | 否 | `true` 时以管理员身份运行 |
 | `hide` | 否 | `true` 时不在界面显示 |
 | `params` | 否 | 参数数组，见下文 |
+
+> ⚠️ **`name` 由界面负责（经内置「AI 脚本编辑器」生成 / 改写脚本时）**：**不要返回 `name` 字段**——
+> 脚本名称由用户在界面上手动填写（必填），程序只认界面上的名称，返回也会被忽略；
+> 手工直接编辑 `index.json` 时 `name` 仍为必填。
+
 > ⚠️ **`lang` 是第一准则，且 `powershell` 与 `pwsh` 是两个完全不同的语言，不可混用**：
 >
 > - `powershell` ≡ Windows PowerShell **5.1** —— 只用 `powershell.exe`，探针要求主版本号 ≤5。

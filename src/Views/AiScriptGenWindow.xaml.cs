@@ -14,6 +14,8 @@ namespace AIScriptManager.Views;
 ///    ParentGroupId 指向的目录节点（null = 根层级）下的唯一 script/index.json；
 ///  - 编辑模式（EditSeed / EditEntryId / EditFilePath 由主窗口装配）：载入现有脚本让 AI 按修改要求改写，
 ///    接受后覆盖原脚本文件并按条目 id 更新其索引条目（改语言只改 JSON 的 lang 字段，无需改文件名）。
+/// 脚本名称**只由用户手动填写且必填**：AI 不参与取名（system prompt 已禁止模型返回 name 字段，
+/// 解析结果里的名称一律忽略）；名称为空时「接受并写入」保持禁用、不落库。
 /// 生成过程为流式（模型回复实时刷进脚本预览区）；首轮成功后进入多轮对话——描述框清空、
 /// 占位符切换为追问提示，再次「生成」即带着历史上下文迭代改写，对话历史持久化到
 /// cache/{脚本id}/（每次编辑会话一个文件，删除脚本不清缓存）。
@@ -57,10 +59,12 @@ public partial class AiScriptGenWindow : Window
     // 本会话已完成的对话轮数（首轮 = 1，追问逐次累加）；追问已用次数 = _roundsUsed - 1，
     // 对照 [ai] max_rounds（最大追问轮次，默认 0 = 不追问）判断能否继续；「接受并写入」后归零
     private int _roundsUsed;
-    // 名称框：生成后回填 AI 取名；用户手改后置位 _nameManuallyEdited，后续追问轮不再被 AI 结果覆盖
-    private bool _nameManuallyEdited;
-    // 程序回填 / 清空名称框时抑制 TextChanged（避免误判为手改）
+    // 脚本名称：只由用户在名称框里手动填写（必填）——AI 不参与取名，生成结果里的名称一律忽略，
+    // 故不再需要「AI 回填 / 用户手改」那套判定状态。
+    // 程序预填（编辑模式带入原名）/ 清空名称框时抑制 TextChanged，避免误触发按钮刷新与必填提示
     private bool _suppressNameChanged;
+    // 生成进行中：期间「接受并写入」保持禁用（结果未定），名称框编辑不得把它重新点亮
+    private bool _isGenerating;
 
     private bool IsEditMode => EditSeed != null;
 
@@ -114,7 +118,9 @@ public partial class AiScriptGenWindow : Window
         }
 
         BtnGenerate.IsEnabled = false;
-        BtnAccept.IsEnabled = false;
+        _isGenerating = true;
+        // 生成期间「接受并写入」保持禁用；完成 / 失败后由 finally 里的 RefreshAcceptEnabled 统一刷新
+        RefreshAcceptEnabled();
         ScriptPreview.Text = "";
         // 生成中：脚本预览区临时充当「实时回复」流式窗口
         PreviewScriptLabel.Text = Strings.AiGenStreamingLabel;
@@ -156,19 +162,13 @@ public partial class AiScriptGenWindow : Window
             // 完成：恢复预览区标题，显示解析后的脚本正文
             PreviewScriptLabel.Text = Strings.AiGenPreviewScript;
             ScriptPreview.Text = _result.Content;
-            // 回填 AI 取的名称（仅用户未手改时，避免覆盖手动输入）
-            if (!_nameManuallyEdited)
-            {
-                _suppressNameChanged = true;
-                NameBox.Text = _result.Name;
-                _suppressNameChanged = false;
-            }
+            // 名称框不由 AI 写入（脚本名称仅手动填写、必填）：生成成功后「接受并写入」是否可点
+            // 取决于名称框是否有值，由 finally 里的 RefreshAcceptEnabled 决定
             _roundsUsed++;
             // 已达追问上限（默认 0 = 首轮后即止）：状态栏提示收尾，按钮在 finally 中保持禁用
             StatusText.Text = _roundsUsed - 1 >= AppConfig.AiMaxRounds
                 ? string.Format(Strings.AiStatusRoundLimit, AppConfig.AiMaxRounds)
                 : Strings.AiStatusGenerated;
-            BtnAccept.IsEnabled = true;
 
             // 多轮对话：清空描述框等待下一轮修改要求（占位符切换为追问提示）
             DescBox.Clear();
@@ -179,22 +179,30 @@ public partial class AiScriptGenWindow : Window
             _result = null;
             PreviewScriptLabel.Text = Strings.AiGenPreviewScript;
             StatusText.Text = string.Format(Strings.AiStatusGenFail, ex.Message);
-            BtnAccept.IsEnabled = false;
         }
         finally
         {
             // 已用追问数（_roundsUsed - 1）达上限后禁止再次生成（失败不计入轮数；首轮失败时为 -1，恒允许重试）
             BtnGenerate.IsEnabled = _roundsUsed - 1 < AppConfig.AiMaxRounds;
+            _isGenerating = false;
+            // 名称为空时「接受并写入」保持禁用（脚本名称必填，AI 不代取名）
+            RefreshAcceptEnabled();
         }
     }
 
     private void BtnAccept_Click(object sender, RoutedEventArgs e)
     {
         if (_result == null) return;
-        // 以名称框当前值覆盖 AI 取名（空则回退到 AI 名，避免列表出现空名）
+        // 脚本名称必填、且只能手动填写（AI 不代取名）：名称为空则不落库，留在窗口让用户补填。
+        // 正常路径下名称为空时「接受并写入」本身是禁用的，这里再兜一道（防御性，如程序化调用）。
         var finalName = NameBox.Text?.Trim();
-        if (string.IsNullOrWhiteSpace(finalName)) finalName = _result.Name;
-        _result.Name = finalName!;
+        if (string.IsNullOrWhiteSpace(finalName))
+        {
+            StatusText.Text = Strings.AiStatusNeedName;
+            NameBox.Focus();
+            return;
+        }
+        _result.Name = finalName;
         try
         {
             if (IsEditMode)
@@ -220,7 +228,6 @@ public partial class AiScriptGenWindow : Window
                 _suppressNameChanged = true;
                 NameBox.Clear();
                 _suppressNameChanged = false;
-                _nameManuallyEdited = false;
                 BtnAccept.IsEnabled = false;
                 OwnerViewModel?.ReloadTree();
                 Close();
@@ -249,7 +256,6 @@ public partial class AiScriptGenWindow : Window
             _suppressNameChanged = true;
             NameBox.Clear();
             _suppressNameChanged = false;
-            _nameManuallyEdited = false;
             PreviewScriptLabel.Text = Strings.AiGenPreviewScript;
             BtnAccept.IsEnabled = false;
 
@@ -264,10 +270,30 @@ public partial class AiScriptGenWindow : Window
         }
     }
 
-    /// <summary>名称框内容变化：仅当用户手动输入才置位 _nameManuallyEdited（程序回填/清空时已用 _suppressNameChanged 抑制）。</summary>
+    /// <summary>
+    /// 名称框内容变化：刷新「接受并写入」的可用性；名称为空时给出必填提示（名称只能手动填写，AI 不代取名）。
+    /// 程序预填 / 清空（编辑模式带入原名、写入后清空）已由 _suppressNameChanged 抑制，不会误触发。
+    /// </summary>
     private void NameBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (_suppressNameChanged) return;
-        _nameManuallyEdited = true;
+        RefreshAcceptEnabled();
+        if (string.IsNullOrWhiteSpace(NameBox.Text))
+        {
+            if (_result != null) StatusText.Text = Strings.AiStatusNeedName;
+        }
+        else if (StatusText.Text == Strings.AiStatusNeedName)
+        {
+            // 补填名称后撤下必填提示，回到常态文案（已达追问上限时仍显示上限提示）
+            StatusText.Text = _roundsUsed - 1 >= AppConfig.AiMaxRounds
+                ? string.Format(Strings.AiStatusRoundLimit, AppConfig.AiMaxRounds)
+                : Strings.AiStatusGenerated;
+        }
     }
+
+    /// <summary>
+    /// 刷新「接受并写入」的可用性：需已有生成结果、当前未在生成中、且脚本名称已手动填写（名称必填）。
+    /// </summary>
+    private void RefreshAcceptEnabled()
+        => BtnAccept.IsEnabled = _result != null && !_isGenerating && !string.IsNullOrWhiteSpace(NameBox.Text);
 }
