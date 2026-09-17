@@ -93,10 +93,9 @@ public static class Strings
     public const string TreeMenuCreateDir = "创建目录";
     public const string TreeMenuCreateScript = "创建脚本";
     public const string TreeMenuSaveAs = "另存为";
-    public const string TreeMenuEditScript = "编辑脚本";
+    public const string TreeMenuEdit = "编辑";
     public const string TreeMenuRename = "重命名";
-    public const string TreeMenuDeleteDir = "删除目录";
-    public const string TreeMenuDeleteScript = "删除脚本";
+    public const string TreeMenuDelete = "删除";
     // 二次确认文案（{0} = 节点名）
     public const string TreeDeleteDirConfirm = "确定删除目录「{0}」吗？\n\n仅从索引中移除该目录及其下全部条目，不删除任何脚本文件。";
     public const string TreeDeleteScriptConfirm = "确定删除脚本「{0}」吗？\n\n将同时删除索引条目、脚本文件与其历史记录，此操作不可恢复。";

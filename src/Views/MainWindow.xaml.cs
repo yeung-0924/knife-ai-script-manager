@@ -218,9 +218,9 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// 脚本树右键菜单：按命中目标动态构建——
-    ///  - 面板空白：创建目录 / 创建脚本；
-    ///  - 目录节点：创建目录 / 创建脚本，另加 重命名 / 删除目录；
-    ///  - 脚本节点：编辑脚本 / 重命名 / 删除脚本。
+    ///  - 面板空白：创建目录 / 创建脚本 / 另存为；
+    ///  - 目录节点：创建目录 / 创建脚本 / 另存为 / 重命名 / 删除；
+    ///  - 脚本节点：另存为 / 编辑 / 重命名 / 删除。
     /// 右键先把命中项置为选中（WPF 右键默认不改选中），保证动作取到的就是所点节点。
     /// </summary>
     private void ScriptTreeView_ContextMenuOpening(object sender, ContextMenuEventArgs e)
@@ -258,16 +258,16 @@ public partial class MainWindow : Window
             cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuSaveAs, "download.svg", TreeSaveAsDir_Click,
                 MainViewModel.HasScriptDescendant(node)));
             cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuRename, "pencil.svg", TreeRename_Click));
-            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuDeleteDir, "trash-2.svg", TreeDeleteDir_Click));
+            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuDelete, "trash-2.svg", TreeDeleteDir_Click));
             return cm;
         }
 
         // 脚本类：另存为 / 编辑 / 重命名 / 删除
-        // 「编辑脚本」与「创建脚本」同用机器人图标（bot.svg），让用户一眼识别这是 AI 功能
+        // 「编辑」与「创建脚本」同用机器人图标（bot.svg），让用户一眼识别这是 AI 功能
         cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuSaveAs, "download.svg", TreeSaveAsScript_Click));
-        cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuEditScript, "bot.svg", TreeEditScript_Click));
+        cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuEdit, "bot.svg", TreeEditScript_Click));
         cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuRename, "pencil.svg", TreeRename_Click));
-        cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuDeleteScript, "trash-2.svg", TreeDeleteScript_Click));
+        cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuDelete, "trash-2.svg", TreeDeleteScript_Click));
         return cm;
     }
 
@@ -367,7 +367,7 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>右键「编辑脚本」：载入现有脚本内容与参数作为种子，AI 按修改要求改写后覆盖原文件并更新索引条目。</summary>
+    /// <summary>右键「编辑」：载入现有脚本内容与参数作为种子，AI 按修改要求改写后覆盖原文件并更新索引条目。</summary>
     private void TreeEditScript_Click(object sender, RoutedEventArgs e)
     {
         if (_ctxNode is not { Kind: ScriptTreeItem.NodeKind.Script, Item: not null } node)
@@ -422,7 +422,7 @@ public partial class MainWindow : Window
         RevealScriptInTree(dlg.AcceptedEntryId);
     }
 
-    /// <summary>右键「删除目录」：二次确认后仅从唯一索引移除该目录条目（含子树），不删任何脚本文件。</summary>
+    /// <summary>右键「删除」菜单项（作用于目录）：二次确认后仅从唯一索引移除该目录条目（含子树），不删任何脚本文件。</summary>
     private void TreeDeleteDir_Click(object sender, RoutedEventArgs e)
     {
         if (_ctxNode is not { Kind: ScriptTreeItem.NodeKind.Group } node)
@@ -443,7 +443,7 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>右键「删除脚本」：二次确认后删除索引条目、脚本文件（仅限 script 目录内，防路径穿越）及其历史记录目录。</summary>
+    /// <summary>右键「删除」菜单项（作用于脚本）：二次确认后删除索引条目、脚本文件（仅限 script 目录内，防路径穿越）及其历史记录目录。</summary>
     private void TreeDeleteScript_Click(object sender, RoutedEventArgs e)
     {
         if (_ctxNode is not { Kind: ScriptTreeItem.NodeKind.Script, Item: not null } node)
