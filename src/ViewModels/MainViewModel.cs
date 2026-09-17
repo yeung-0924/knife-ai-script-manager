@@ -1262,6 +1262,38 @@ public class MainViewModel : ViewModelBase
 
     #region runtime 选择（按脚本语言校验/带出可执行文件）
     /// <summary>
+    /// 「自动回正」前的确认入口：由 View（MainWindow）在构造时注入 MessageBox 实现。
+    /// 未注入时（无 UI 宿主，如离屏测试台）一律视为「不同意」——宁可保持现状，也不静默改掉用户的选择。
+    /// </summary>
+    /// <remarks>
+    /// 参数依次为：脚本语言、用户当前选择（探针判负）的完整路径、检测到且通过探针的替代路径；
+    /// 返回 true 表示用户同意换绑。实现须同步返回（本委托在 UI 线程上被调用）。
+    /// </remarks>
+    public Func<string, string, string, bool>? RuntimeHealConfirm { get; set; }
+
+    /// <summary>
+    /// 已被用户明确拒绝过的「语言 + 当前路径」组合：不再重复弹窗，避免每切一次脚本就被问一遍。
+    /// 用户重新手动选择该语言的可执行文件时清空对应项（= 再给一次机会）。
+    /// </summary>
+    private readonly HashSet<string> _healDeclined = new(StringComparer.OrdinalIgnoreCase);
+
+    private static string HealKey(string lang, string current) => lang + "|" + current;
+
+    /// <summary>
+    /// 自愈换绑前的用户征询：返回 true 才会落盘换绑。
+    /// 已拒绝过的组合、以及未注入确认入口（无 UI 宿主）时一律返回 false，保持用户的原选择。
+    /// </summary>
+    private bool RequestRuntimeHeal(string lang, string current, string suggested)
+    {
+        var key = HealKey(lang, current);
+        if (_healDeclined.Contains(key)) return false;   // 同一选择已拒绝过：不再打扰
+        if (RuntimeHealConfirm == null) return false;    // 无 UI 宿主：保守不换绑
+        if (RuntimeHealConfirm(lang, current, suggested)) return true;
+        _healDeclined.Add(key);
+        return false;
+    }
+
+    /// <summary>
     /// 校验当前脚本语言的可执行文件：先读已保存配置，缺失则尝试自动检测
     /// （免安装运行时目录 runtime_dir → 系统 PATH → Windows 系统目录）。
     /// 结果驱动顶部只读输入框（SelectedExePath）；未配置时 SelectedExePath 为空并展示占位提示。
@@ -1355,24 +1387,38 @@ public class MainViewModel : ViewModelBase
             if (alreadyKnownBad) { ok = false; version = null; }
             else { (ok, version) = RuntimeProbe.Probe(lang, exePath); }
 
-            string? healed = null;
+            // 判负 → 在后台把「同语言候选表里确实可用」的替代连同它的版本号一起找出来，
+            // 但【不在这里落盘】：换绑必须等用户在 UI 线程上确认（见 RequestRuntimeHeal）。
+            string? alt = null;
+            string? altVersion = null;
             if (!ok)
             {
-                var alt = RuntimeConfig.FindUsableAlternative(lang, exePath, p => RuntimeProbe.Probe(lang, p).ok);
-                if (alt != null)
+                alt = RuntimeConfig.FindUsableAlternative(lang, exePath, p =>
                 {
-                    RuntimeConfig.Save(lang, alt);   // 落盘：此后直接命中，不再重复自愈
-                    (ok, version) = RuntimeProbe.Probe(lang, alt);
-                    healed = alt;
-                }
+                    var probed = RuntimeProbe.Probe(lang, p);
+                    if (probed.ok) altVersion = probed.version;   // 顺手留下版本号，省一次重复探测
+                    return probed.ok;
+                });
             }
 
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
                 // 用户可能已切到别的脚本，丢弃过期结果
                 if (!string.Equals(SelectedScript?.Lang, lang, StringComparison.OrdinalIgnoreCase)) return;
-                if (healed != null) SelectedExePath = healed;   // 自愈成功：顶层输入框同步显示换绑后的路径
+
+                if (alt != null && RequestRuntimeHeal(lang, exePath, alt))
+                {
+                    // 用户确认换绑：落盘 + 顶层输入框同步显示 + 按替代项的探测结果刷新（先落基线状态，再给临时提示）
+                    RuntimeConfig.Save(lang, alt);
+                    SelectedExePath = alt;
+                    ApplyProbeResult(lang, true, altVersion);
+                    ShowTemporaryStatus(string.Format(Strings.StatusRuntimeHealedFormat, lang));
+                    return;
+                }
+
+                // 无可用替代 / 用户选择保留：维持用户的选择，按原始判负结果标红置灰
                 ApplyProbeResult(lang, ok, version);
+                if (alt != null) ShowTemporaryStatus(Strings.StatusRuntimeHealDeclined);
             }));
         });
     }
@@ -1413,6 +1459,8 @@ public class MainViewModel : ViewModelBase
         // 手动选择即落盘（无论版本校验是否通过）：用户错选后可由「自动」按钮纠正。
         // 校验失败会在 UI 标红、置灰运行按钮，但不应丢弃用户的显式选择。
         RuntimeConfig.Save(lang!, dlg.FileName);
+        // 用户重新选择 = 该语言此前的「拒绝自愈」记录作废，再给一次询问机会
+        _healDeclined.RemoveWhere(k => k.StartsWith(lang + "|", StringComparison.OrdinalIgnoreCase));
         RefreshRuntimeStatus(); // 内部回填 SelectedExePath 并实跑/命中版本号探测，失败则标红
     }
 

@@ -24,6 +24,14 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _vm = new MainViewModel();
+        // 可执行文件「自动回正」前的警告确认：VM 不直接弹窗（沿用本项目约定：VM 只回状态栏文本，
+        // 弹窗一律在 View 层），由 View 注入实现；owner 取本窗口 → 窗口级模态，弹窗期间点不到主界面。
+        // 默认按钮为「否」：直接关窗 / 回车都保持原选择，不会被无声换掉。
+        _vm.RuntimeHealConfirm = (lang, current, suggested) =>
+            MessageBox.Show(this,
+                string.Format(Strings.DlgRuntimeHealConfirmFormat, lang, current, suggested),
+                Strings.TitleWindow, MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                MessageBoxResult.No) == MessageBoxResult.Yes;
         DataContext = _vm;
 
         // 窗口显示前就位：全屏/最大化立即生效，避免先普通尺寸闪一帧（位置不缓存）

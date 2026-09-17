@@ -161,6 +161,10 @@ public static class Strings
     public const string StatusReloadScriptFileDone = "已重载脚本文件（已记住，重启后自动加载）";
     public const string StatusReloadScriptFileInvalid = "所选文件不是有效的脚本索引（index.json）";
     public const string StatusRuntimeAutoFail = "运行时目录与环境变量中均未检测到该语言的可执行文件，请配置 runtime 目录或自行选择";
+    // 用户确认「自动回正」换绑后的状态栏提示（{0} = 语言，如 python）
+    public const string StatusRuntimeHealedFormat = "已换用检测到的可用运行时（{0}）";
+    // 用户在「自动回正」确认框里选择保留原选择
+    public const string StatusRuntimeHealDeclined = "已保留你选择的可执行文件（版本校验未通过，无法执行）";
     #endregion
 
     #region 占位提示
@@ -190,6 +194,10 @@ public static class Strings
     // 重载是破坏性操作（用所选索引整体替换当前脚本树），选定文件后由 MainWindow 弹二次确认。
     // {0} = 所选索引文件完整路径
     public const string DlgReloadScriptFileConfirm = "确定重载脚本文件吗？\n\n将加载：\n{0}\n\n当前列表中的全部脚本与目录都会被整体替换，此操作不可撤销。";
+    // 「自动回正」前的警告确认：当前选择的可执行文件版本校验未通过、且该语言的候选表里存在可用替代时，
+    // 先弹此警告，用户点「是」才换绑（此前是静默换掉，用户会看到自己的选择被无声改掉）。
+    // {0} = 语言（如 python），{1} = 用户当前选择的可执行文件完整路径，{2} = 检测到的可用替代路径
+    public const string DlgRuntimeHealConfirmFormat = "当前选择的可执行文件不是可用的 {0} 运行时：\n\n{1}\n\n已检测到该语言下可用的运行时：\n\n{2}\n\n是否改用它？\n\n选择「否」将保留你选择的文件，但该脚本会保持「不可用」（标红、无法执行）；\n之后可点「自动检测」按钮，或重新点击输入框选择。";
     #endregion
 
     #region 执行日志（输出到日志面板与 log/ 文件，用户可见）
