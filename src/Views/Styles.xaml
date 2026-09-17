@@ -47,6 +47,10 @@
     <SolidColorBrush x:Key="BrushRequired" Color="#FFE5484D" />
     <SolidColorBrush x:Key="BrushSplitter" Color="#FFF0F0F0" />
     <SolidColorBrush x:Key="BrushPlaceholder" Color="#FFA0A0A0" />
+    <!-- 菜单下拉面板的「目标外观」（工具栏 Menu 子菜单与齿轮配置菜单共用）。
+         数值不是拍脑袋：2026-09-17 用离屏渲染取像素实测 WPF 默认菜单面板 —— 底色 #F0F0F0、1px 边框 #999999、直角。 -->
+    <SolidColorBrush x:Key="BrushMenuPopupBg" Color="#FFF0F0F0" />
+    <SolidColorBrush x:Key="BrushMenuPopupBorder" Color="#FF999999" />
 
     <!-- Lucide 图标几何（眼睛 / 眼睛划线）：用于密码框内嵌的「显示/隐藏」切换按钮。
          眼睛：眼眶轮廓 + 瞳孔圆环（描边、不填充）；眼睛划线：四段折线（含一道斜杠）表示已隐藏。 -->
@@ -479,18 +483,25 @@
         <Setter Property="Padding" Value="0" />
     </Style>
 
-    <!-- 选项齿轮菜单：圆角面板 + 轻微下移，视觉上悬于齿轮按钮下方。 -->
+    <!-- 选项齿轮菜单（脚本预览 / 执行日志 的「配置」按钮下拉）。
+         ★ 外观必须与工具栏「文件 / 设置」下拉（WPF 默认 MenuItem 子菜单）**逐像素一致**。
+         2026-09-17 暮云指出「配置」面板与「文件」面板颜色不同 → 离屏渲染取像素实测，三处面板确实各不相同：
+             · 工具栏 Menu 子菜单（本样式的对齐目标）：底色 #F0F0F0、1px 边框 #999999、直角
+             · 本样式【改前】：底色 #FFFFFF、1px 边框 #D0D0D0、4px 圆角   ← 「看起来不一样」的根因
+             · 脚本树右键（默认 ContextMenu 模板）：底色 #F5F5F5、1px 边框 #959595、直角（与目标仅差 2%，肉眼不可辨）
+         故不再自绘浅色圆角面板，改用「与默认菜单同值」的画刷 + 直角 + 1px 边框；同时去掉原来的 Margin 下移，
+         位置也与「文件」下拉一致地紧贴按钮下方。
+         ⚠️ 复查方式：离屏渲染取面板像素（底色/边框/圆角），别靠肉眼在真机上来回切菜单比对。 -->
     <Style x:Key="OptionsContextMenu" TargetType="ContextMenu">
         <Setter Property="SnapsToDevicePixels" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ContextMenu">
-                    <Border Background="{DynamicResource BrushPanelBg}"
-                            BorderBrush="{DynamicResource BrushBorder}"
+                    <Border Background="{DynamicResource BrushMenuPopupBg}"
+                            BorderBrush="{DynamicResource BrushMenuPopupBorder}"
                             BorderThickness="1"
-                            CornerRadius="4"
+                            CornerRadius="0"
                             Padding="2"
-                            Margin="0,4,0,0"
                             SnapsToDevicePixels="True">
                         <ItemsPresenter SnapsToDevicePixels="True" />
                     </Border>

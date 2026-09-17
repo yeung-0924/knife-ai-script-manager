@@ -27,28 +27,33 @@
 
     <DockPanel>
         <!-- 顶部工具栏：文件 / 设置 下拉菜单。
-             ⚠️ 图标配色沿用本工具栏的深色描边 #202020（folder-open / settings / download-dark），
-                与右键菜单、预览工具条的 #808080 是两套配色，勿混用（download-dark.svg 即为此准备的深色变体）。 -->
+             ⚠️ 图标配色两套，勿混用（2026-09-17 暮云要求把用法钉死在图标选择上）：
+                · 本工具栏（文件 / 设置 菜单项）= #202020 深色描边 → folder-open / settings /
+                  hard-drive-upload / hard-drive-download；
+                · 右键菜单 + 预览工具条 = #808080 浅色描边 → download / copy / pencil / trash-2 …
+             即「图标文件本身带固有色」，同一图标不做两套配色变体：放错位置就会明显不协调。 -->
         <Border DockPanel.Dock="Top" Background="{DynamicResource BrushToolbarBg}"
                 BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1">
             <Menu Background="Transparent" Foreground="{DynamicResource BrushText}" Padding="4,2">
                 <MenuItem Header="{x:Static local:Strings.MenuFile}">
                     <!-- 重载脚本文件：首步选文件在 VM，二次确认（整体替换脚本树）在 Click 处理器里，故不用 Command 绑定；
                          IsEnabled 绑 CanReloadScriptFile，保留旧「打开」按钮「执行中禁用」的行为。 -->
+                    <!-- 图标 hard-drive-upload（lucide）：磁盘 + 向上箭头 = 从外部把脚本文件「灌」进来 -->
                     <MenuItem Click="MenuReloadScriptFile_Click"
                               IsEnabled="{Binding CanReloadScriptFile}"
                               Header="{x:Static local:Strings.BtnReload}">
                         <MenuItem.Icon>
                             <svgc:SvgViewbox Width="13" Height="13"
-                                             UriSource='pack://application:,,,/assets/images/button/folder-open.svg' />
+                                             UriSource='pack://application:,,,/assets/images/button/hard-drive-upload.svg' />
                         </MenuItem.Icon>
                     </MenuItem>
                     <!-- 全部另存为：整棵脚本树打包 zip（等同对索引所在目录做另存为），无脚本时置灰 -->
+                    <!-- 图标 hard-drive-download（lucide）：磁盘 + 向下箭头 = 把整个 Script 目录「倒」出去 -->
                     <MenuItem Command="{Binding SaveAsAllCommand}"
                               Header="{x:Static local:Strings.BtnSaveAsAll}">
                         <MenuItem.Icon>
                             <svgc:SvgViewbox Width="13" Height="13"
-                                             UriSource='pack://application:,,,/assets/images/button/download-dark.svg' />
+                                             UriSource='pack://application:,,,/assets/images/button/hard-drive-download.svg' />
                         </MenuItem.Icon>
                     </MenuItem>
                 </MenuItem>
@@ -533,13 +538,15 @@
                                                              UriSource='pack://application:,,,/assets/images/button/copy.svg'
                                                              HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Button>
+                                        <!-- 另存为：与右键菜单「另存为」同一个 download 图标（#808080 浅色，同属浅色那一套），
+                                             让「另存为」在全 app 只有一个视觉符号；原 save.svg（软盘/保存）已不再使用 -->
                                         <Button Style="{StaticResource BaseButtonLight}"
                                                 Command="{Binding SaveAsPreviewCommand}"
                                                 Width="24" Height="24" Padding="0"
                                                 Margin="0,0,3,0"
                                                 ToolTip="{x:Static local:Strings.BtnSaveAs}">
                                             <svgc:SvgViewbox Width="13" Height="13"
-                                                             UriSource='pack://application:,,,/assets/images/button/save.svg'
+                                                             UriSource='pack://application:,,,/assets/images/button/download.svg'
                                                              HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Button>
                                         <!-- 脚本预览显示选项：齿轮图标按钮，点击弹出下拉菜单（带勾选标记），所有脚本共享同一套开关 -->
