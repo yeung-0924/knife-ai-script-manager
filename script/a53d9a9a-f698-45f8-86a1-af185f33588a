@@ -136,7 +136,7 @@ function Test-IsAdministrator {
 
 # ---- SCRIPT_MANAGER_ENV 聚合变量（与 Install-Java.ps1 同一套机制）----
 # 读取聚合变量（Machine + User 两个作用域合并去重，保证切换过作用域后不丢条目）
-function Get-ScriptManagerEnv {
+function Get-AIScriptManagerEnv {
     $items = @()
     foreach ($s in @('Machine', 'User')) {
         $raw = [Environment]::GetEnvironmentVariable('SCRIPT_MANAGER_ENV', $s)
@@ -151,7 +151,7 @@ function Get-ScriptManagerEnv {
 }
 
 # 读取指定作用域的 SCRIPT_MANAGER_ENV 条目（返回数组，用于写 Path 时避免跨作用域污染）
-function Get-ScriptManagerEnvForScope {
+function Get-AIScriptManagerEnvForScope {
     param([string]$Scope)
     $raw = [Environment]::GetEnvironmentVariable('SCRIPT_MANAGER_ENV', $Scope)
     if ([string]::IsNullOrWhiteSpace($raw)) { return @() }
@@ -159,10 +159,10 @@ function Get-ScriptManagerEnvForScope {
 }
 
 # 把新 bin 目录前置进 SCRIPT_MANAGER_ENV；$IsOldEntry 脚本块用于判定应移除的旧条目（按运行时特征）
-function Add-ScriptManagerEnvEntry {
+function Add-AIScriptManagerEnvEntry {
     param([string]$BinDir, [string]$Scope, [scriptblock]$IsOldEntry)
     $binNorm = $BinDir.TrimEnd('\')
-    $current = Get-ScriptManagerEnv
+    $current = Get-AIScriptManagerEnv
     if ([string]::IsNullOrWhiteSpace($current)) {
         $newVal = $binNorm
     } else {
@@ -180,10 +180,10 @@ function Add-ScriptManagerEnvEntry {
 }
 
 # 确保指定作用域 PATH 前置 SCRIPT_MANAGER_ENV 中的实际路径（去重后写回）
-function Ensure-PathHasScriptManagerEnv {
+function Ensure-PathHasAIScriptManagerEnv {
     param([string]$Scope)
     $raw = [Environment]::GetEnvironmentVariable('Path', $Scope)
-    $envPaths = Get-ScriptManagerEnvForScope -Scope $Scope
+    $envPaths = Get-AIScriptManagerEnvForScope -Scope $Scope
     if ($envPaths.Count -eq 0) { return }
     $envValue = $envPaths -join ';'
     if ([string]::IsNullOrWhiteSpace($raw)) {
@@ -358,20 +358,20 @@ if ($AddToPath -eq '是') {
         # 再清理旧 Node 绝对路径。避免「旧路径删了、新条目没建成」导致 node 彻底找不到。
         # 1) 把本次 node 目录前置进 SCRIPT_MANAGER_ENV，同时移除聚合变量里旧的 node 条目
         #    （脚本块匹配 node 特征；java/python/go 等其他运行时条目保留不动）
-        Add-ScriptManagerEnvEntry -BinDir $binDir -Scope $scope -IsOldEntry {
+        Add-AIScriptManagerEnvEntry -BinDir $binDir -Scope $scope -IsOldEntry {
             param([string]$s)
             Test-IsNodeHomePath $s
         }
         SayC $GREEN '结果' "已把 Node 目录写入 SCRIPT_MANAGER_ENV（$scope）: $binDir"
 
         # 2) 确保主作用域 PATH 前置 SCRIPT_MANAGER_ENV 中的实际路径（CMD 不会展开 %VAR% 引用）
-        Ensure-PathHasScriptManagerEnv -Scope $scope
+        Ensure-PathHasAIScriptManagerEnv -Scope $scope
         SayC $GREEN '结果' "已把 SCRIPT_MANAGER_ENV 中的实际路径前置到 $scope PATH"
 
         # 3) 最后清理：从 Machine + User 两级 PATH 移除旧的 Node 绝对路径（目录名特征 + 含 node.exe）
         #    此时新路径已就位，删旧路径不会造成 node 缺失。
         #    保护当前 SCRIPT_MANAGER_ENV 中的路径，避免把刚写进去的新 Node 误删。
-        $protectedPaths = @((Get-ScriptManagerEnvForScope -Scope 'Machine') + (Get-ScriptManagerEnvForScope -Scope 'User') | Select-Object -Unique)
+        $protectedPaths = @((Get-AIScriptManagerEnvForScope -Scope 'Machine') + (Get-AIScriptManagerEnvForScope -Scope 'User') | Select-Object -Unique)
         foreach ($oldScope in @('Machine', 'User')) {
             $rawOld = [Environment]::GetEnvironmentVariable('Path', $oldScope)
             if ([string]::IsNullOrWhiteSpace($rawOld)) { continue }

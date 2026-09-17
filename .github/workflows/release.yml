@@ -34,13 +34,13 @@ jobs:
         shell: pwsh
         run: |
           $ver = $env:GITHUB_REF_NAME
-          Compress-Archive -Path "dist/ScriptManagerPortable/*" -DestinationPath "ScriptManagerPortable-$ver.zip" -Force
-          Compress-Archive -Path "dist/ScriptManager/*"       -DestinationPath "ScriptManager-$ver.zip"       -Force
+          Compress-Archive -Path "dist/AIScriptManagerPortable/*" -DestinationPath "AIScriptManagerPortable-$ver.zip" -Force
+          Compress-Archive -Path "dist/AIScriptManager/*"       -DestinationPath "AIScriptManager-$ver.zip"       -Force
 
       - name: Create Release and upload
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ScriptManagerPortable-${{ github.ref_name }}.zip
-            ScriptManager-${{ github.ref_name }}.zip
+            AIScriptManagerPortable-${{ github.ref_name }}.zip
+            AIScriptManager-${{ github.ref_name }}.zip
           generate_release_notes: true

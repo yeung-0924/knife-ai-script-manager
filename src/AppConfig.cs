@@ -16,9 +16,10 @@ namespace AIScriptManager;
 ///   runtime_dir = 运行时安装目录（默认 runtime；注入环境变量 SCRIPT_MANAGER_RUNTIME，供安装脚本默认使用）
 ///   cache_dir  = 缓存文件目录（默认 cache）
 ///   log_dir    = 日志文件目录（默认 log，如 error.log）
+///   history_dir = 脚本变更历史目录（默认 history；每次保存脚本后按脚本 id 分目录留一份副本）
 ///   default_timeout = 脚本默认执行超时（秒，0/留空=不限制）
 /// 路径规则：留空/被注释则使用默认值；填相对路径则相对 exe 目录解析；填绝对路径（含 UNC 如 \\Mac\Home\...）则直接使用。
-/// script_index_file 是「文件▸打开」与「设置▸编辑配置▸脚本索引文件」的唯一共同出口，二者写同一键、效果一致。
+/// script_index_file 是「文件▸重载脚本文件」与「设置▸编辑配置▸脚本索引文件」的唯一共同出口，二者写同一键、效果一致。
 /// 后续新增配置项，在此追加对应的静态属性并从 Sections 取值即可。
 /// </summary>
 public static class AppConfig
@@ -49,7 +50,7 @@ public static class AppConfig
     /// <summary>
     /// 脚本索引文件（指向 index.json）的完整路径，来自配置的 [script] script_index_file。
     /// 留空/注释则默认 exe 同级 script\index.json；相对路径相对 exe 目录解析；绝对路径（含 UNC）直接使用。
-    /// 该项是「文件▸打开」与「设置▸编辑配置▸脚本索引文件」的唯一共同出口，二者写同一键、效果一致。
+    /// 该项是「文件▸重载脚本文件」与「设置▸编辑配置▸脚本索引文件」的唯一共同出口，二者写同一键、效果一致。
     /// </summary>
     public static string ScriptIndexFilePath
     {
@@ -74,6 +75,9 @@ public static class AppConfig
     /// 运行时安装目录（来自配置的 runtime_dir，默认 exe 同级 runtime；注入环境变量 SCRIPT_MANAGER_RUNTIME 供脚本引用）。
     /// 安装类脚本（Install-*.ps1）在未指定安装目录时以此作为默认目标；目录不存在时由脚本自行创建。
     /// 该值每次启动脚本时由 RuntimeResolver 现读，配置改动保存即生效，无需重启。
+    /// 另：自 2026-09-16 起，该目录同时是可执行文件「自动检测」的首选查找位置
+    /// （见 RuntimeConfig.FindInRuntimeDir），优先级高于系统 PATH——
+    /// 把免安装运行时（如 JDK）解压到此处即可被优先采用。
     /// </summary>
     public static string RuntimeDir => ResolveDir("script", "runtime_dir", "runtime");
 
@@ -85,6 +89,31 @@ public static class AppConfig
 
     /// <summary>日志文件目录（来自配置的 log_dir，默认 exe 同级 log）。</summary>
     public static string LogDir => ResolveDir("script", "log_dir", "log");
+
+    /// <summary>
+    /// 脚本变更历史目录（来自配置的 history_dir，默认 exe 同级 history）。
+    /// 每次「接受并写入」（新增 / 编辑脚本）成功后，由 <see cref="ScriptHistory"/> 在此留一份脚本副本：
+    /// 按脚本 id 分目录、以保存时刻（yyyyMMdd-HHmmss）命名，便于日后回退；删除脚本时对应目录一并删除。
+    /// 改动本项后旧历史留在原目录<b>不迁移</b>（与 log_dir 同为「改配置不搬旧数据」的语义），下次保存起写入新目录。
+    /// </summary>
+    public static string HistoryDir => ResolveDir("script", "history_dir", "history");
+
+    /// <summary>
+    /// 各 [script] 目录/文件配置项「未自定义时」对应的默认绝对路径（相对 exe 目录解析），
+    /// 供配置编辑弹窗的占位提示显示真实路径——随软件所在目录自动变化
+    /// （如把软件从 D:\Workspace\... 移到 E:\Workspace\...，占位符即显示 E:\...\lib）。
+    /// 仅已知 key 有对应默认值，未知 key 返回空串。
+    /// </summary>
+    public static string GetDefaultPath(string key) => key.ToLowerInvariant() switch
+    {
+        "script_index_file" => ScriptIndexFilePath,
+        "lib_dir" => LibDir,
+        "runtime_dir" => RuntimeDir,
+        "cache_dir" => CacheDir,
+        "log_dir" => LogDir,
+        "history_dir" => HistoryDir,
+        _ => "",
+    };
 
     /// <summary>
     /// 脚本默认执行超时（秒）。0 或负数表示不限制（无限等待，默认）。
@@ -154,7 +183,7 @@ public static class AppConfig
     #endregion
 
     /// <summary>
-    /// 运行时持久化「文件▸打开」选择的脚本索引文件到 config.ini 的 [script] script_index_file（存绝对路径）。
+    /// 运行时持久化「文件▸重载脚本文件」选择的脚本索引文件到 config.ini 的 [script] script_index_file（存绝对路径）。
     /// 与「设置▸编辑配置▸脚本索引文件」写的是同一个键，二者效果一致；保留其它 section / key / 注释与顺序；
     /// 文件或 [script] 节不存在则创建。同时更新内存缓存，使同进程内 ScriptIndexFilePath 即时反映新值。
     /// 写入失败仅记调试日志、不抛异常。

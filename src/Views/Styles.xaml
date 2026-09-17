@@ -47,6 +47,15 @@
     <SolidColorBrush x:Key="BrushRequired" Color="#FFE5484D" />
     <SolidColorBrush x:Key="BrushSplitter" Color="#FFF0F0F0" />
     <SolidColorBrush x:Key="BrushPlaceholder" Color="#FFA0A0A0" />
+    <!-- 菜单下拉面板的「目标外观」（工具栏 Menu 子菜单与齿轮配置菜单共用）。
+         数值不是拍脑袋：2026-09-17 用离屏渲染取像素实测 WPF 默认菜单面板 —— 底色 #F0F0F0、1px 边框 #999999、直角。 -->
+    <SolidColorBrush x:Key="BrushMenuPopupBg" Color="#FFF0F0F0" />
+    <SolidColorBrush x:Key="BrushMenuPopupBorder" Color="#FF999999" />
+
+    <!-- Lucide 图标几何（眼睛 / 眼睛划线）：用于密码框内嵌的「显示/隐藏」切换按钮。
+         眼睛：眼眶轮廓 + 瞳孔圆环（描边、不填充）；眼睛划线：四段折线（含一道斜杠）表示已隐藏。 -->
+    <Geometry x:Key="EyeGeometry">M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0 M12 9 A3 3 0 1 1 12 15 A3 3 0 1 1 12 9 Z</Geometry>
+    <Geometry x:Key="EyeOffGeometry">M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49 M14.084 14.158a3 3 0 0 1-4.242-4.242 M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143 M2 2 L22 22</Geometry>
 
     <!-- 按钮基础样式（24px、圆角、悬浮/禁用态） -->
     <Style x:Key="BaseButton" TargetType="Button">
@@ -184,6 +193,55 @@
         </Setter>
     </Style>
 
+    <!-- 密码框内嵌「显示/隐藏」切换按钮：靠右、透明底、鼠标悬停变蓝，与 ClearButton 同处框内右侧。
+         未勾选（隐藏态）显示眼睛（EyeGeometry），勾选（显示态）切换为眼睛划线（EyeOffGeometry）+ 变蓝。
+         点击逻辑由 CheckBox 的 Checked/Unchecked 事件驱动（切换 PasswordBox / TextBox 可见性并同步明文）。
+         注：StrokeThickness 取 1.2（非 2）。WPF 的 Path 用 Stretch 缩放几何时不会同步缩放描边，
+         若沿用 Lucide 24 单位稿的 2，在 14px 图标上会粗得刺眼；1.2 ≈ 2/24×14，还原 Lucide 原始纤细比例。 -->
+    <Style x:Key="PasswordRevealToggle" TargetType="CheckBox">
+        <Setter Property="Width" Value="16" />
+        <Setter Property="Height" Value="16" />
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,4,0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="ToolTip" Value="显示 / 隐藏密钥" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Grid Background="Transparent" Width="16" Height="16">
+                        <Path x:Name="EyeOpen" Data="{StaticResource EyeGeometry}"
+                              Width="14" Height="14" Stretch="Uniform"
+                              Stroke="{DynamicResource BrushTextSecondary}" StrokeThickness="1.2"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Path x:Name="EyeClosed" Data="{StaticResource EyeOffGeometry}"
+                              Width="14" Height="14" Stretch="Uniform"
+                              Stroke="{DynamicResource BrushTextSecondary}" StrokeThickness="1.2"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Visibility="Collapsed" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="EyeOpen" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="EyeClosed" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="EyeClosed" Property="Stroke" Value="{DynamicResource BrushPrimary}" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="EyeOpen" Property="Stroke" Value="{DynamicResource BrushPrimary}" />
+                            <Setter TargetName="EyeClosed" Property="Stroke" Value="{DynamicResource BrushPrimary}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- 输入框基础样式（24px、圆角、聚焦高亮、悬浮边框） -->
     <Style x:Key="BaseTextBox" TargetType="TextBox">
         <Setter Property="Height" Value="24" />
@@ -253,6 +311,72 @@
                 <ControlTemplate TargetType="TextBox">
                     <!-- Padding 交给 TextBoxBase 内建机制（同 BaseTextBox，模板不重复绑定）；
                          右侧内边距 10 让长文本在 × 左侧被 TextBoxView 裁剪，不会压住按钮。 -->
+                    <ScrollViewer x:Name="PART_ContentHost"
+                                  VerticalAlignment="Center"
+                                  Focusable="False" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- 密码框基础样式（与 BaseTextBox 对称：24px、圆角、聚焦变蓝、悬浮边框、禁用态）。
+         用于需要独立圆角框的密码输入场景；若嵌在外部 Border 内（如配置编辑器 API 密钥框），
+         改用下方的 ClearablePasswordBoxInline，由外层 Border 绘制边框/背景。 -->
+    <Style x:Key="BasePasswordBox" TargetType="PasswordBox">
+        <Setter Property="Height" Value="24" />
+        <Setter Property="MinHeight" Value="24" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <!-- 左内边距 1：文本真实落点 = Padding + 密文宿主固有内缩(约3px) = 视觉 4px，
+             与各处占位符 TextBlock 的 Margin(4,0,0,0) 对齐。 -->
+        <Setter Property="Padding" Value="1,0" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Background" Value="{DynamicResource BrushPanelBg}" />
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CaretBrush" Value="{DynamicResource BrushCaret}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource BrushSelection}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="PasswordBox">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4"
+                            SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      Focusable="False" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BrushBorderHover}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BrushPrimary}" />
+                            <Setter TargetName="Bd" Property="BorderThickness" Value="1.5" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BrushDisabledBg}" />
+                            <Setter Property="Foreground" Value="{DynamicResource BrushDisabledFg}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- 密码框内嵌样式（与 ClearableTextBoxInline 对称）：输入框嵌在外部 Border 里时，
+         自身不画边框/背景（由外层绘制），只保留 PART_ContentHost 承载密文；
+         圆角与聚焦高亮交给外层 Border（见各调用处 IsKeyboardFocusWithin 触发器）。 -->
+    <Style x:Key="ClearablePasswordBoxInline" TargetType="PasswordBox" BasedOn="{StaticResource BasePasswordBox}">
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="PasswordBox">
                     <ScrollViewer x:Name="PART_ContentHost"
                                   VerticalAlignment="Center"
                                   Focusable="False" />
@@ -359,18 +483,25 @@
         <Setter Property="Padding" Value="0" />
     </Style>
 
-    <!-- 选项齿轮菜单：圆角面板 + 轻微下移，视觉上悬于齿轮按钮下方。 -->
+    <!-- 选项齿轮菜单（脚本预览 / 执行日志 的「配置」按钮下拉）。
+         ★ 外观必须与工具栏「文件 / 设置」下拉（WPF 默认 MenuItem 子菜单）**逐像素一致**。
+         2026-09-17 暮云指出「配置」面板与「文件」面板颜色不同 → 离屏渲染取像素实测，三处面板确实各不相同：
+             · 工具栏 Menu 子菜单（本样式的对齐目标）：底色 #F0F0F0、1px 边框 #999999、直角
+             · 本样式【改前】：底色 #FFFFFF、1px 边框 #D0D0D0、4px 圆角   ← 「看起来不一样」的根因
+             · 脚本树右键（默认 ContextMenu 模板）：底色 #F5F5F5、1px 边框 #959595、直角（与目标仅差 2%，肉眼不可辨）
+         故不再自绘浅色圆角面板，改用「与默认菜单同值」的画刷 + 直角 + 1px 边框；同时去掉原来的 Margin 下移，
+         位置也与「文件」下拉一致地紧贴按钮下方。
+         ⚠️ 复查方式：离屏渲染取面板像素（底色/边框/圆角），别靠肉眼在真机上来回切菜单比对。 -->
     <Style x:Key="OptionsContextMenu" TargetType="ContextMenu">
         <Setter Property="SnapsToDevicePixels" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ContextMenu">
-                    <Border Background="{DynamicResource BrushPanelBg}"
-                            BorderBrush="{DynamicResource BrushBorder}"
+                    <Border Background="{DynamicResource BrushMenuPopupBg}"
+                            BorderBrush="{DynamicResource BrushMenuPopupBorder}"
                             BorderThickness="1"
-                            CornerRadius="4"
+                            CornerRadius="0"
                             Padding="2"
-                            Margin="0,4,0,0"
                             SnapsToDevicePixels="True">
                         <ItemsPresenter SnapsToDevicePixels="True" />
                     </Border>

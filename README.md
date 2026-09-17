@@ -27,12 +27,23 @@ knife-ai-script-manager/
 |---|---|---|
 | `script_index_file` | 脚本索引文件（指向 `index.json`）；「文件▸打开」与「设置▸编辑配置」写同一键 | `script\index.json` |
 | `lib_dir` | 第三方依赖目录（注入环境变量 `SCRIPT_MANAGER_LIB`） | `lib` |
-| `runtime_dir` | 运行时安装目录（注入环境变量 `SCRIPT_MANAGER_RUNTIME`） | `runtime` |
+| `runtime_dir` | 运行时安装目录（注入环境变量 `SCRIPT_MANAGER_RUNTIME`）；也是可执行文件自动检测的**首选查找位置** | `runtime` |
 | `cache_dir` | 缓存目录 | `cache` |
 | `log_dir` | 日志目录（如 `error.log`） | `log` |
+| `history_dir` | 脚本变更历史目录（每次保存脚本后留一份副本，供回退） | `history` |
 | `default_timeout` | 脚本默认执行超时（秒，0/留空=不限制） | `0` |
 
 路径规则：相对路径相对 exe 目录解析；绝对路径（含 UNC 如 `\\Mac\Home\...`）直接使用。仓库提供了 `config.ini.example` 模板（含注释），复制为 `config/config.ini` 即可生效；修改后重启程序生效。
+
+> 可执行文件的自动检测顺序为：`runtime_dir` 目录（免安装运行时）→ 系统环境变量 `PATH` → Windows 系统目录。
+> 因此把绿色版运行时（如解压好的 JDK）放进 `runtime_dir` 即可被优先采用，不必依赖机器上已安装的版本；
+> 目录内支持 `runtime\<exe>`、`runtime\bin\<exe>`、`runtime\<子目录>\bin\<exe>`（如 `runtime\jdk-25\bin\java.exe`）等布局。
+>
+> 检测到的可执行文件还要通过一次**版本探针**（实跑该语言的版本命令并校验首行指纹）才会被采用。
+> **`lang` 是第一准则，决定用哪个运行时**，其中 `powershell` 与 `pwsh` 是**两个互不相通的语言**：
+> `powershell` ≡ Windows PowerShell 5.1（探针要求主版本号 ≤5），`pwsh` ≡ PowerShell 6+（要求主版本号 ≥6），
+> 各自只认同名的可执行文件、绝不互相回退。故 `lang=powershell` 的脚本不会被绑到 PowerShell 7 上（反之亦然）；
+> 机器没装 PowerShell 7 时，`lang=pwsh` 的脚本就是「检测不到运行时」并标红置灰，不会降级到 5.1 运行。
 
 ## 脚本来源（单一来源）
 
@@ -44,6 +55,25 @@ exe 启动后只加载**一处**脚本：默认是 exe 同级的 `script/` 目�
 - 想加载其它位置的脚本：点工具栏「打开」按钮，直接选择任意目录下的 `index.json` 文件；该选择会自动写入 `config.ini` 的 `script_index_file`，重启后仍自动加载（与「设置▸编辑配置▸脚本索引文件」写同一键、效果一致）。
 
 **导出**（左侧"导出"按钮）：把整个 `script/` 目录原样复制到用户选择的目录（时间戳命名，重复导出不覆盖），结构保持 `script/`（含 `index.json` 与脚本），导出成功后自动打开资源管理器并选中该目录。
+
+## 脚本变更历史
+
+每次「接受并写入」（**新增和编辑脚本**都算）落库成功后，程序会自动为该脚本留一份内容副本：
+
+```
+history/
+  {脚本id}/              # 按脚本 id 分目录（与 cache 下的对话历史同构）
+    20260916-150312      # 保存时刻命名，无扩展名
+    20260916-162045
+```
+
+- 命名规则 `yyyyMMdd-HHmmss`（字典序即时间序）；同一秒内连续保存会追加 `-2`、`-3`… 不覆盖。
+- 副本**不带扩展名**，与 `script/` 下的物理脚本一致；回退时直接覆盖回 `script/{脚本id}` 即可，无需处理扩展名。
+- 保存失败（如同级重名报错）不会留下历史——快照在索引写入成功之后才生成。
+- 删除脚本时，该脚本的历史目录会**一并删除**；删除目录（仅摘索引、不删脚本文件）时历史保留。
+- 位置可用 `config.ini` 的 `history_dir` 自定义（默认 exe 同级 `history`；改动后旧历史留在原目录不迁移）。
+
+> 现阶段**只做记录**：不提供历史查看 / 一键回退界面。需要回退时，手工把某份副本拷回 `script/{脚本id}` 覆盖即可。
 
 ## 如何重新构建 exe
 

@@ -86,9 +86,11 @@ public static class ScriptLangs
 {
     // 顺序遵循朝云约定：cmd(bat) → powershell → powershell7 → bash → java → nodejs → python → go → rust
     public const string Cmd = "cmd";
+    /// <summary>Windows PowerShell 5.1。<b>与 <see cref="Pwsh"/> 是两个完全不同的语言</b>，强绑定且不可混用：
+    /// 候选只认 powershell.exe，RuntimeProbe 另要求探针输出的主版本号 ≤5（见 RuntimeProbe.Probes）。</summary>
     public const string PowerShell = "powershell";
-    /// <summary>PowerShell 7+（pwsh.exe）。与 <see cref="PowerShell"/>（Windows PowerShell 5.1）区分：
-    /// 后者候选为 pwsh.exe/powershell.exe 依次回退，此 lang 只认 PowerShell 6+ 的 pwsh.exe。</summary>
+    /// <summary>PowerShell 7+（pwsh.exe）。与 <see cref="PowerShell"/>（Windows PowerShell 5.1）强绑定的另一半：
+    /// 候选只认 pwsh.exe，探针另要求主版本号 ≥6。</summary>
     public const string Pwsh = "pwsh";
     public const string Bash = "bash";
     public const string Java = "java";

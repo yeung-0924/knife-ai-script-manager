@@ -20,8 +20,9 @@ namespace AIScriptManager.Views;
 ///   <item>缓存目录(cache_dir)被改动时，<see cref="CacheStore.Relocate"/> 把旧目录内容整体迁移到新目录并即时切换，无需重启；</item>
 ///   <item>运行时目录(runtime_dir)/日志目录(log_dir)等仅作环境变量注入或目录图标，下次启动脚本/重绘即生效。</item>
 /// </list>
-/// 目录/文件项均为只读选择框（浏览按钮），不可手输；未自定义时留空并显示默认相对路径占位符，
-/// 点击 × 或「默认值」可清除、回落到内置相对默认（script\index.json / lib / runtime / cache / log）。
+/// 目录/文件项均为只读选择框（浏览按钮），不可手输；未自定义时留空并显示「解析为 exe 同级的真实绝对路径」占位符
+/// （如 D:\Workspace\knife-ai-script-manager\dist\AIScriptManager\lib，随软件所在目录自动变化），
+/// 点击 × 或「默认值」可清除、回落到内置默认（script\index.json / lib / runtime / cache / log）。
 /// 「默认执行超时(秒)」与 AI「最大追问轮次」是弹窗内允许手输的数字项（前者空白 = 不限制，后者空白 = 默认 0）。
 /// </summary>
 public partial class ConfigEditorWindow : Window
@@ -50,6 +51,7 @@ public partial class ConfigEditorWindow : Window
         _rows.Add(MakeRow("runtime_dir", "运行时安装目录", "folder", "runtime"));
         _rows.Add(MakeRow("cache_dir", "缓存目录", "folder", "cache"));
         _rows.Add(MakeRow("log_dir", "日志目录", "folder", "log"));
+        _rows.Add(MakeRow("history_dir", "历史记录目录", "folder", "history"));
         Rows.ItemsSource = _rows;
 
         // 超时同理：留空或显式写 0 都表示「不限制」，统一显示为空白 + 占位符「0（不限制）」
@@ -82,16 +84,19 @@ public partial class ConfigEditorWindow : Window
         _aiApiKey = ak;
         AiApiKeyBox.Password = ak;
         AiApiKeyTextBox.Text = ak;
+        UpdateApiKeyClearVisibility();
     }
 
     /// <summary>
     /// 构建一行：内部 <see cref="ConfigRow.Value"/> 只保存用户在 config.ini 中的「自定义覆盖值」
     /// （绝对路径），未自定义时为空白。空白即代表「使用默认相对路径」，由 <see cref="AppConfig"/> 在
-    /// 读取时回落到 Placeholder 所示的相对默认值（script\index.json / lib / runtime / cache / log）。
+    /// 读取时回落到各目录默认（exe 同级的 script\index.json / lib / runtime / cache / log）。
+    /// 占位符显示的是该默认解析为 exe 同级的<b>真实绝对路径</b>（如 D:\...\dist\AIScriptManager\lib），
+    /// 随软件所在目录自动变化；相对默认 relDefault 仅用于判断 config 显式值是否等同内置默认。
     /// 注意：config.ini 里若把默认相对路径原样写了出来（如 lib_dir = lib），语义与留空完全等价，
     /// 此时同样视为「未自定义」，显示为空白 + 占位符，避免用户误以为已经改过配置。
     /// </summary>
-    private static ConfigRow MakeRow(string key, string label, string kind, string placeholder)
+    private static ConfigRow MakeRow(string key, string label, string kind, string relDefault)
     {
         var raw = AppConfig.GetRawValue("script", key);
         return new ConfigRow
@@ -99,8 +104,9 @@ public partial class ConfigEditorWindow : Window
             Key = key,
             Label = label,
             Kind = kind,
-            Placeholder = placeholder,
-            Value = IsBuiltInDefault(raw, placeholder) ? "" : raw!.Trim(),
+            // 占位符 = 解析为 exe 同级的真实绝对路径（随软件目录自动变化）；相对默认仅用于「是否等同内置默认」比较
+            Placeholder = AppConfig.GetDefaultPath(key),
+            Value = IsBuiltInDefault(raw, relDefault) ? "" : raw!.Trim(),
         };
     }
 
@@ -125,7 +131,7 @@ public partial class ConfigEditorWindow : Window
     /// <summary>
     /// 配置落盘并刷新内存后，使「需即时切换」的项无需重启即生效：
     /// ① cache_dir 改动 → <see cref="CacheStore.Relocate"/> 把旧缓存内容迁到新目录并切换 CacheStore.CacheRoot；
-    /// ② 标准目录（config/log/cache/runtime/lib/script）重新套用彩色文件夹图标，使新目录立即获得图标、
+    /// ② 标准目录（config/log/cache/history/runtime/lib/script）重新套用彩色文件夹图标，使新目录立即获得图标、
     ///    旧目录的残留图标在下一次打开资源管理器时被覆盖（旧缓存目录已被 Relocate 清空，无碍）。
     /// 两者均自带异常吞没与调试日志，绝不抛出影响主流程。
     /// </summary>
@@ -174,7 +180,7 @@ public partial class ConfigEditorWindow : Window
             AppConfig.Reload();
             // cache_dir 迁移 + 标准目录图标刷新：使目录类配置改动保存即生效，无需重启
             ApplyLiveEffects();
-            // 若脚本索引文件被改动，左侧目录树需按新索引重新渲染（与「文件▸打开」同源）
+            // 若脚本索引文件被改动，左侧目录树需按新索引重新渲染（与「文件▸重载脚本文件」同源）
             if (!string.Equals(oldIndex, AppConfig.ScriptIndexJsonPath, System.StringComparison.OrdinalIgnoreCase))
                 OwnerViewModel?.ReloadTree();
             // 保存成功后关闭弹窗
@@ -223,13 +229,34 @@ public partial class ConfigEditorWindow : Window
             AiApiKeyBox.Password = AiApiKeyTextBox.Text;
     }
 
-    /// <summary>隐藏态（PasswordBox）输入：无条件记录明文（显示态下它被隐藏、只在切换时被同步赋同值，无副作用）。</summary>
+    /// <summary>隐藏态（PasswordBox）输入：无条件记录明文（显示态下它被隐藏、只在切换时被同步赋同值，无副作用），并刷新清空(×)按钮显隐。</summary>
     private void AiApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
-        => _aiApiKey = AiApiKeyBox.Password;
+    {
+        _aiApiKey = AiApiKeyBox.Password;
+        UpdateApiKeyClearVisibility();
+    }
 
-    /// <summary>显示态（TextBox）输入：无条件记录明文（隐藏态下同理，仅在切换时被同步赋同值）。</summary>
+    /// <summary>显示态（TextBox）输入：无条件记录明文（隐藏态下同理，仅在切换时被同步赋同值），并刷新清空(×)按钮显隐。</summary>
     private void AiApiKeyTextBox_TextChanged(object sender, TextChangedEventArgs e)
-        => _aiApiKey = AiApiKeyTextBox.Text;
+    {
+        _aiApiKey = AiApiKeyTextBox.Text;
+        UpdateApiKeyClearVisibility();
+    }
+
+    /// <summary>根据当前密钥内容是否为空，切换框内右侧清空(×)按钮的可见性（与各行 ClearButton 行为一致）。</summary>
+    private void UpdateApiKeyClearVisibility()
+    {
+        AiApiKeyClear.Visibility = string.IsNullOrEmpty(_aiApiKey) ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    /// <summary>清空 API 密钥：同时清空隐藏态(PasswordBox)与显示态(TextBox)，回落到「未配置」。</summary>
+    private void AiApiKeyClear_Click(object sender, RoutedEventArgs e)
+    {
+        AiApiKeyBox.Password = "";
+        AiApiKeyTextBox.Text = "";
+        _aiApiKey = "";
+        UpdateApiKeyClearVisibility();
+    }
 
     /// <summary>AI 文本行（base_url / model）的 × 清空：置空即回落到占位符默认值。</summary>
     private void AiTextClear_Click(object sender, RoutedEventArgs e)
@@ -281,7 +308,7 @@ public class ConfigRow : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    /// <summary>浏览按钮图标：选文件(file)用 folder-open-dot，选目录(folder)用 folder-open（与工具栏「打开」一致）。</summary>
+    /// <summary>浏览按钮图标：选文件(file)用 folder-open-dot，选目录(folder)用 folder-open（与工具栏「重载脚本文件」一致）。</summary>
     public System.Uri BrowseIconUri =>
         Kind == "file"
             ? new System.Uri("pack://application:,,,/assets/images/button/folder-open-dot.svg", System.UriKind.Absolute)

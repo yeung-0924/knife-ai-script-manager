@@ -20,9 +20,10 @@ public static class Strings
     #endregion
 
     #region 按钮
-    public const string BtnExport = "导出";
-    public const string BtnOpen = "打开";
+    public const string BtnReload = "重载脚本文件";
     public const string BtnSave = "保存";
+    public const string BtnSaveAs = "另存为";
+    public const string BtnSaveAsAll = "全部另存为";
     public const string BtnReset = "重置";
     public const string BtnDefault = "默认值";
     public const string BtnCopy = "复制";
@@ -31,7 +32,7 @@ public static class Strings
     public const string BtnRun = "执行";
     public const string BtnStop = "停止";
     public const string BtnAuto = "自动检测";
-    public const string BtnAutoToolTip = "自动检测环境变量中的可执行文件";
+    public const string BtnAutoToolTip = "自动检测：优先使用运行时目录（runtime），其次系统环境变量 PATH";
     public const string BtnExpandAll = "展开全部";
     public const string BtnCollapseAll = "收起全部";
         public const string BtnExpandCollapseToolTip = "展开/收起全部目录";
@@ -49,15 +50,18 @@ public static class Strings
         #endregion
 
     #region AI 生成脚本
-    public const string TitleAiCreate = "AI 创建脚本";
-    public const string TitleAiEdit = "AI 编辑脚本";
-    public const string TitleAiGenerate = "AI 生成脚本";
+    public const string TitleAiCreate = "创建脚本";
+    public const string TitleAiEdit = "编辑脚本";
+    public const string TitleAiGenerate = "生成脚本";
     public const string AiGenDescLabel = "脚本功能描述";
     public const string AiGenNameLabel = "脚本名称";
-    public const string AiGenNamePlaceholder = "留空则由 AI 自动取名；生成后也可在此手动修改";
-    public const string AiGenDescPlaceholder = "用自然语言描述脚本要做什么；可一并说明需要的参数（如：参数「目录」类型为 folder、参数「关键字」类型为 text）和语言（如：python）。越具体，生成越准。";
+    public const string AiGenNamePlaceholder = "脚本在列表中的显示名（生成后可由 AI 取名，也可手动修改）";
+    // 占位提示 = 一段可直接照抄的完整示例：示范「语言 + 功能 + 参数（类型/必填/默认值/选项）」的写法，并列出可选语言与参数类型，让用户一眼知道本功能能做什么。\n 为换行，TextBlock 会分两段显示。
+    public const string AiGenDescPlaceholder = "请用 python 帮我实现「批量重命名」脚本：读取参数「目录」（folder 类型，必填）下的全部文件，按「前缀」（text 类型，如 img_）加序号依次重命名；再用「起始序号」（text 类型，默认 1）和「是否处理子目录」（select 类型，选项 是/否，默认 否）两个参数控制行为；执行完成后打印新旧文件名对照表。\n（语言也可写 node / java / go / rust / powershell / pwsh / cmd / bash；参数可标注 text、folder、file、select 类型，并说明是否必填、默认值与可选项。描述越具体，生成越准。）";
     public const string AiGenEditLabel = "修改要求（要改什么，越具体越好）";
-    public const string AiGenEditPlaceholder = "描述要如何修改这个脚本（如：增加一个「重试次数」参数，失败时自动重试；把语言改成 pwsh）…";
+    // 编辑模式的占位提示：同样给出一段完整示例，示范「在现有脚本上要改什么」的写法
+    // （新增 / 删除参数、调整类型与默认值、更换语言、改变处理逻辑与输出格式）。\n 为换行，TextBlock 分两段显示。
+    public const string AiGenEditPlaceholder = "请在当前脚本基础上改用 pwsh 重写，并新增「重试次数」参数（text 类型，默认 3）：失败时自动重试，每次间隔 2 秒；再把「目录」参数改为可选，未填写时使用脚本所在目录；最后把输出改为按时间倒序排列。\n（可以指定要改的部分：新增 / 删除参数、调整参数类型与默认值、更换语言、改变处理逻辑与输出格式。说得越具体，改动越贴合预期。）";
     public const string AiGenPreviewScript = "脚本预览（生成后展示，接受前可检查）";
     public const string BtnAiGenerate = "生成";
     public const string BtnAiAccept = "接受并写入";
@@ -67,7 +71,8 @@ public static class Strings
     public const string AiStatusGenerating = "正在生成脚本…";
     public const string AiStatusStreaming = "正在生成… 已接收 {0} 字（预览区实时显示模型原始回复，完成后自动解析）";
     public const string AiGenStreamingLabel = "模型实时回复（生成中，完成后自动解析为下方脚本）";
-    public const string AiGenFollowUpPlaceholder = "可继续输入修改要求（多轮对话），如：把语言换成 go；参数「关键字」改为必填；再输出一列汇总…";
+    // 追问态（多轮对话）的占位提示。
+    public const string AiGenFollowUpPlaceholder = "可继续输入修改要求（多轮对话）：把语言换成 go；参数「关键字」改为必填；输出再追加一列汇总。\n（每一轮都基于上一轮的结果修改，直到点「接受并写入」为止。）";
     public const string AiStatusGenerated = "已生成，请检查预览后点「接受并写入」";
     public const string AiStatusWriteDone = "已写入并刷新脚本列表";
     public const string AiStatusEditDone = "已覆盖脚本文件并更新索引条目";
@@ -89,14 +94,14 @@ public static class Strings
 
     #region 脚本树右键菜单
     public const string TreeMenuCreateDir = "创建目录";
-    public const string TreeMenuCreateScript = "创建脚本（AI）";
-    public const string TreeMenuEditScript = "编辑脚本";
+    public const string TreeMenuCreateScript = "创建脚本";
+    public const string TreeMenuSaveAs = "另存为";
+    public const string TreeMenuEdit = "编辑";
     public const string TreeMenuRename = "重命名";
-    public const string TreeMenuDeleteDir = "删除目录";
-    public const string TreeMenuDeleteScript = "删除脚本";
+    public const string TreeMenuDelete = "删除";
     // 二次确认文案（{0} = 节点名）
     public const string TreeDeleteDirConfirm = "确定删除目录「{0}」吗？\n\n仅从索引中移除该目录及其下全部条目，不删除任何脚本文件。";
-    public const string TreeDeleteScriptConfirm = "确定删除脚本「{0}」吗？\n\n将同时删除索引条目与脚本文件，此操作不可恢复。";
+    public const string TreeDeleteScriptConfirm = "确定删除脚本「{0}」吗？\n\n将同时删除索引条目、脚本文件与其历史记录，此操作不可恢复。";
     public const string TreeDeleteDone = "已删除：{0}";
     public const string TreeDeleteFail = "删除失败：{0}";
     #endregion
@@ -129,11 +134,10 @@ public static class Strings
     public const string StatusRuntimePickedFormat = "已为 {0} 指定可执行文件：{1}";
     // 执行器（可执行文件）校验失败时的状态栏后缀：与 StatusReady 拼接为「就绪 · 未检测到有效的可执行文件」
     public const string StatusRuntimeInvalid = "未检测到有效的可执行文件";
-    public const string StatusExportedTo = "已导出到：{0}";
-    public const string StatusExportEmpty = "导出失败：没有可导出的脚本";
-    public const string StatusExportSameDir = "导出目标与源脚本目录相同，请另选目录";
-    public const string StatusExportSourceMissingFormat = "脚本目录不存在：{0}";
-    public const string StatusExportFailFormat = "导出失败：{0}";
+    public const string StatusSaveAsScriptDone = "已另存为：{0}";
+    public const string StatusSaveAsDone = "已另存为压缩包：{0}";
+    public const string StatusSaveAsEmpty = "该目录没有可导出的脚本";
+    public const string StatusSaveAsFailFormat = "另存为失败：{0}";
     public const string StatusCopied = "已复制脚本内容到剪贴板";
     public const string StatusLogCopied = "已复制日志内容到剪贴板";
     #endregion
@@ -154,15 +158,22 @@ public static class Strings
     // StatusReloaded / StatusReloadedEnv：原「刷新」按钮提示，刷新功能下线后已废弃（保留作清理记录）。
     public const string StatusLogCleared = "已清空执行日志";
     public const string StatusParamsReset = "已重置为默认值";
-    public const string StatusRuntimeAutoSet = "已按环境变量自动获取可执行文件";
-    // 「打开」脚本索引文件的反馈（状态栏轻提示，不弹窗）：成功加载并记住 / 所选文件非有效脚本索引
-    public const string StatusOpenScriptFileDone = "已打开脚本文件（已记住，重启后自动加载）";
-    public const string StatusOpenScriptFileInvalid = "所选文件不是有效的脚本索引（index.json）";
-    public const string StatusRuntimeAutoFail = "环境中未检测到该语言的可执行文件，请配置环境变量或自行选择";
+    public const string StatusRuntimeAutoSet = "已自动获取可执行文件（运行时目录或环境变量）";
+    // 「重载脚本文件」的反馈（状态栏轻提示，不弹窗）：成功加载并记住 / 所选文件非有效脚本索引
+    public const string StatusReloadScriptFileDone = "已重载脚本文件（已记住，重启后自动加载）";
+    public const string StatusReloadScriptFileInvalid = "所选文件不是有效的脚本索引（index.json）";
+    public const string StatusRuntimeAutoFail = "运行时目录与环境变量中均未检测到该语言的可执行文件，请配置 runtime 目录或自行选择";
+    // 用户确认「自动回正」换绑后的状态栏提示（{0} = 语言，如 python）
+    public const string StatusRuntimeHealedFormat = "已换用检测到的可用运行时（{0}）";
+    // 用户在「自动回正」确认框里选择保留原选择
+    public const string StatusRuntimeHealDeclined = "已保留你选择的可执行文件（版本校验未通过，无法执行）";
     #endregion
 
     #region 占位提示
-    public const string RuntimePlaceholderMissing = "未检测到有效的可执行文件，请配置环境变量或自行选择";
+    public const string RuntimePlaceholderMissing = "未检测到有效的可执行文件，请配置 runtime 目录或环境变量，或自行选择";
+    // lang 取值不在支持列表内（≠ 本机缺运行时）：检测与版本探针都无从下手，必须点明是「语言标注」问题，
+    // 否则用户会误以为是环境没装好而反复折腾。{0} = 脚本声明的 lang 原值。
+    public const string RuntimePlaceholderUnsupportedLang = "脚本语言「{0}」不受支持，无法校验可执行文件；请检查脚本索引里的 lang 取值";
     #endregion
 
     #region 可执行文件路径输入框 ToolTip
@@ -180,10 +191,15 @@ public static class Strings
     public const string DlgPickFileTitle = "请选择{0}";
     public const string DlgPickFileFilter = "所有文件 (*.*)|*.*";
     public const string DlgPickFolderTitle = "请选择{0}";
-    public const string DlgExportDirTitle = "选择导出目录";
-    public const string DlgExportScriptFilter = "脚本文件|*.*";
-    public const string DlgExportScriptDonePrefix = "导出的脚本已保存到：";
-    public const string DlgOpenScriptFileTitle = "选择脚本索引文件（index.json）";
+    public const string DlgExportZipTitle = "另存为压缩包";
+    public const string DlgReloadScriptFileTitle = "选择脚本索引文件（index.json）";
+    // 重载是破坏性操作（用所选索引整体替换当前脚本树），选定文件后由 MainWindow 弹二次确认。
+    // {0} = 所选索引文件完整路径
+    public const string DlgReloadScriptFileConfirm = "确定重载脚本文件吗？\n\n将加载：\n{0}\n\n当前列表中的全部脚本与目录都会被整体替换，此操作不可撤销。";
+    // 「自动回正」前的警告确认：当前选择的可执行文件版本校验未通过、且该语言的候选表里存在可用替代时，
+    // 先弹此警告，用户点「是」才换绑（此前是静默换掉，用户会看到自己的选择被无声改掉）。
+    // {0} = 语言（如 python），{1} = 用户当前选择的可执行文件完整路径，{2} = 检测到的可用替代路径
+    public const string DlgRuntimeHealConfirmFormat = "当前选择的可执行文件不是可用的 {0} 运行时：\n\n{1}\n\n已检测到该语言下可用的运行时：\n\n{2}\n\n是否改用它？\n\n选择「否」将保留你选择的文件，但该脚本会保持「不可用」（标红、无法执行）；\n之后可点「自动检测」按钮，或重新点击输入框选择。";
     #endregion
 
     #region 执行日志（输出到日志面板与 log/ 文件，用户可见）

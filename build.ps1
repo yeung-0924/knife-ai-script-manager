@@ -298,12 +298,14 @@ function Assemble-Dist {
 
     if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Path $outDir | Out-Null }
     else {
-        # 清空目标目录。部分子项（如正被其他进程占用的 script/）可能暂时无法删除；
-        # 必须用 try/catch 而非 -ErrorAction SilentlyContinue：本机 PowerShell 存在「批量删除守卫」
-        # （单轮删除项数达到阈值即 throw），throw 是终止性错误、SilentlyContinue 拦不住，整个 Assemble-Dist 会中断。
-        # 改为 try/catch 降级：删不动就原地覆盖（Copy-Item -Force 覆盖同名文件）。
+        # 清空目标目录。部分子项（如正被其他进程占用的 script/）可能暂时无法删除，
+        # 此时跳过该项错误继续，后续 Copy-Item -Force 会覆盖其余内容，不影响产物正确性。
+        # ⚠️ 必须用 try/catch 而非 -ErrorAction SilentlyContinue：本机 PowerShell 存在「批量删除守卫」
+        #    （单轮删除项数达到阈值即 throw），throw 是终止性错误，SilentlyContinue 拦不住，
+        #    脚本会整体失败（实测 dist 自包含包含数百个文件，必然触发）。
+        #    降级后等价于「原地覆盖」：对「文件集只增不减」的常规迭代产物一致；真要清干净需人手删一次该目录。
         try { Remove-Item "$outDir\*" -Recurse -Force -ErrorAction Stop }
-        catch { Write-Host "==> [warn] 未能清空 $outDir，改为原地覆盖" }
+        catch { Write-Host "==> [warn] 未能清空 $outDir（$($_.Exception.GetType().Name)），改为原地覆盖" }
     }
 
     # 1) 主程序 exe
@@ -322,7 +324,7 @@ function Assemble-Dist {
     $scriptDst = Join-Path $outDir "script"
     if (Test-Path $scriptSrc) {
         # 先尝试删除旧目标目录；若被占用导致删除失败，也不影响后续复制内容。
-        if (Test-Path $scriptDst) { Remove-Item $scriptDst -Recurse -Force -ErrorAction SilentlyContinue }
+        if (Test-Path $scriptDst) { try { Remove-Item $scriptDst -Recurse -Force -ErrorAction Stop } catch { Write-Host "==> [warn] 未能清理 $scriptDst，改为原地覆盖" } }
         # 确保目标目录存在，然后复制“源目录下的内容”而不是目录本身，避免残留目标目录时变成 script/script。
         if (-not (Test-Path $scriptDst)) { New-Item -ItemType Directory -Path $scriptDst -Force | Out-Null }
         # 干净复制：跳过 .gitignore 命中的 IDE 垃圾（如 *.iml），使 dist 与发布包一致

@@ -3,6 +3,8 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Text;
 using System.Threading.Tasks;
@@ -30,7 +32,7 @@ public class MainViewModel : ViewModelBase
     private const double TopRegionHeight = 400;
     #endregion
 
-    /// <summary>当前加载的脚本索引 json 路径：默认 exe 同级 script/index.json；可由 config.ini 的 [script] script_index_file 配置，或通过「打开」按钮切换。</summary>
+    /// <summary>当前加载的脚本索引 json 路径：默认 exe 同级 script/index.json；可由 config.ini 的 [script] script_index_file 配置，或通过「文件▸重载脚本文件」切换。</summary>
     private string _loadedIndexPath = ConfigLoader.ScriptIndexJson;
 
     #region 按脚本路径缓存的运行态（参数值 + 日志）
@@ -209,9 +211,14 @@ public class MainViewModel : ViewModelBase
         private set
         {
             if (!SetProperty(ref _isRunning, value)) return;
+            OnPropertyChanged(nameof(CanReloadScriptFile));
             CommandManager.InvalidateRequerySuggested();
         }
     }
+
+    /// <summary>是否可重载脚本文件：执行中禁止（整体替换脚本树会让正在运行的脚本失去归属）。
+    /// 供顶部「文件▸重载脚本文件」菜单项绑定 IsEnabled（对应旧「打开」按钮 CanExecute 的 !IsRunning）。</summary>
+    public bool CanReloadScriptFile => !IsRunning;
 
     public bool CanRun =>
         SelectedScript != null
@@ -382,18 +389,17 @@ public class MainViewModel : ViewModelBase
 
     #region 命令
     public RelayCommand RunCommand { get; }
-    public RelayCommand ExportCommand { get; }
     public RelayCommand PickRuntimeCommand { get; }
     public RelayCommand PickExeCommand { get; }
     public RelayCommand AutoRuntimeCommand { get; }
     public RelayCommand CopyCommand { get; }
-    public RelayCommand ExportPreviewCommand { get; }
+    public RelayCommand SaveAsPreviewCommand { get; }
     public RelayCommand StopCommand { get; }
     public RelayCommand ResetParamsCommand { get; }
     public RelayCommand ClearLogCommand { get; }
     public RelayCommand CopyLogCommand { get; }
     public RelayCommand ToggleExpandAllCommand { get; }
-    public RelayCommand OpenFolderCommand { get; }
+    public RelayCommand SaveAsAllCommand { get; }
     #endregion
 
     public MainViewModel()
@@ -411,23 +417,22 @@ public class MainViewModel : ViewModelBase
         _elapsedTimer.Tick += (_, _) => UpdateElapsedText();
 
         RuntimeConfig.EnsureAutoDetected();
-        // 启动加载配置的脚本索引：取 [script] script_index_file（默认内置 script/index.json）；「打开」与配置编辑器写同一键
+        // 启动加载配置的脚本索引：取 [script] script_index_file（默认内置 script/index.json）；「重载脚本文件」与配置编辑器写同一键
         LoadTreeFromIndex(ResolveStartupIndex());
         RefreshRuntimeStatus();
 
         RunCommand = new RelayCommand(_ => ExecuteRun(false), _ => CanRun);
-        ExportCommand = new RelayCommand(_ => DoExport(), _ => Directory.Exists(ConfigLoader.ScriptDir));
         PickRuntimeCommand = new RelayCommand(_ => PickRuntime());
         PickExeCommand = new RelayCommand(_ => PickExe());
         AutoRuntimeCommand = new RelayCommand(_ => AutoRuntime(), _ => SelectedScript != null && !IsRuntimeChecking);
         CopyCommand = new RelayCommand(_ => CopyPreview(), _ => SelectedScript != null);
-        ExportPreviewCommand = new RelayCommand(_ => ExportPreview(), _ => SelectedScript != null);
+        SaveAsPreviewCommand = new RelayCommand(_ => SaveAsPreview(), _ => SelectedScript != null);
         StopCommand = new RelayCommand(_ => StopRunning(), _ => IsRunning);
         CopyLogCommand = new RelayCommand(_ => CopyLog(), _ => SelectedScript != null && Logs.Count > 0);
         ResetParamsCommand = new RelayCommand(_ => ResetParams(), _ => SelectedScript != null);
         ClearLogCommand = new RelayCommand(_ => ClearLog(), _ => SelectedScript != null && Logs.Count > 0);
         ToggleExpandAllCommand = new RelayCommand(_ => ToggleExpandAll());
-        OpenFolderCommand = new RelayCommand(_ => OpenScriptFile(), _ => !IsRunning);
+        SaveAsAllCommand = new RelayCommand(_ => SaveAsRoot(), _ => ScriptTreeHasScripts());
     }
 
     private void CopyLog()
@@ -473,36 +478,44 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>
     /// 解析启动时应加载的索引 json：取配置 [script] script_index_file（默认 exe 同级 script\index.json）。
-    /// 该值由「文件▸打开」与「设置▸编辑配置▸脚本索引文件」共同维护，二者写同一键、效果一致。
+    /// 该值由「文件▸重载脚本文件」与「设置▸编辑配置▸脚本索引文件」共同维护，二者写同一键、效果一致。
     /// </summary>
     private static string ResolveStartupIndex() => AppConfig.ScriptIndexJsonPath;
 
     /// <summary>
     /// 配置编辑器保存后调用：按当前 [script] script_index_file 重新渲染左侧目录树。
-    /// 与「文件▸打开」最终走的是同一条加载路径（<see cref="LoadTreeFromIndex"/>），
+    /// 与「文件▸重载脚本文件」最终走的是同一条加载路径（<see cref="LoadTreeFromIndex"/>），
     /// 故在配置里改了脚本索引文件并保存后，目录树会立即按新索引重建。
     /// </summary>
     public void ReloadTree() => LoadTreeFromIndex(ResolveStartupIndex());
 
     /// <summary>
-    /// 「打开」按钮：弹出文件选择框，直接选择脚本索引文件 index.json（结构同内置 script 目录的 index.json）。
-    /// 选中非有效脚本索引（解析为空）时，目录树渲染为空（符合「渲染不出来即可」的预期，不弹窗报错），且不记忆该选择。
+    /// 「文件▸重载脚本文件」第一步：弹出文件选择框，选择脚本索引文件 index.json
+    /// （结构同内置 script 目录的 index.json）。返回所选文件完整路径；用户取消返回 null。
+    /// ⚠️ 只负责选文件：重载会用所选索引整体替换当前脚本树，属破坏性操作，
+    /// 二次确认由 View（MainWindow.MenuReloadScriptFile_Click）负责，确认后才调 <see cref="ReloadScriptFile"/>。
     /// </summary>
-    private void OpenScriptFile()
+    public string? PickScriptIndexFile()
     {
         // 初始定位到当前已加载索引所在目录，连续打开同类文件更顺手
         var dlg = new OpenFileDialog
         {
-            Title = Strings.DlgOpenScriptFileTitle,
+            Title = Strings.DlgReloadScriptFileTitle,
             Filter = "脚本索引 (index.json)|index.json|JSON 文件 (*.json)|*.json|所有文件 (*.*)|*.*",
             CheckFileExists = true
         };
         if (!string.IsNullOrWhiteSpace(_loadedIndexPath) && File.Exists(_loadedIndexPath))
             dlg.InitialDirectory = Path.GetDirectoryName(_loadedIndexPath);
 
-        if (dlg.ShowDialog() != true) return; // 用户取消
+        return dlg.ShowDialog() == true ? dlg.FileName : null;
+    }
 
-        var indexPath = dlg.FileName;
+    /// <summary>
+    /// 「文件▸重载脚本文件」第二步（View 二次确认通过后调用）：按所选索引整体替换当前脚本树。
+    /// 选中非有效脚本索引（解析为空）时，目录树渲染为空（符合「渲染不出来即可」的预期，不弹窗报错），且不记忆该选择。
+    /// </summary>
+    public void ReloadScriptFile(string indexPath)
+    {
         // 先校验是否为有效脚本索引（解析出节点）再决定是否记忆，避免把随机 json 记住导致重启后空树
         var items = ConfigLoader.LoadIndex(indexPath);
         LoadTreeFromIndex(indexPath);
@@ -511,11 +524,11 @@ public class MainViewModel : ViewModelBase
             // 持久化到 config.ini 的 [script] script_index_file，使重启后仍自动加载该索引文件。
             // 与「设置▸编辑配置▸脚本索引文件」写的是同一个键，效果一致。
             AppConfig.SetScriptIndexFile(indexPath);
-            ShowTemporaryStatus(Strings.StatusOpenScriptFileDone);
+            ShowTemporaryStatus(Strings.StatusReloadScriptFileDone);
         }
         else
         {
-            ShowTemporaryStatus(Strings.StatusOpenScriptFileInvalid);
+            ShowTemporaryStatus(Strings.StatusReloadScriptFileInvalid);
         }
     }
 
@@ -895,8 +908,12 @@ public class MainViewModel : ViewModelBase
                 return sb.ToString();
 
             case ScriptLangs.PowerShell:
+            // pwsh（PowerShell 7）与 Windows PowerShell 5.1 是【两个语言】，但字符串字面量规则
+            // 完全相同（反引号转义、反斜杠为字面量），此处必须合并处理——否则 pwsh 会掉进下面
+            // 的通用兜底，把参数里的 Windows 路径反斜杠翻倍（C:\Temp 写成 C:\\Temp），路径失效。
+            case ScriptLangs.Pwsh:
                 // PowerShell 双引号字符串：反引号 ` 为转义符，需转义它自身与双引号；
-                // 反斜杠无需转义（PS 不把 \ 当转义）。
+                // 反斜杠无需转义（PS 不把 \ 当转义）。5.1 与 7 规则一致，已实测确认。
                 return value
                     .Replace("`", "``")
                     .Replace("\"", "`\"");
@@ -1245,7 +1262,40 @@ public class MainViewModel : ViewModelBase
 
     #region runtime 选择（按脚本语言校验/带出可执行文件）
     /// <summary>
-    /// 校验当前脚本语言的可执行文件：先读已保存配置，缺失则尝试自动检测（PATH / 系统目录）。
+    /// 「自动回正」前的确认入口：由 View（MainWindow）在构造时注入 MessageBox 实现。
+    /// 未注入时（无 UI 宿主，如离屏测试台）一律视为「不同意」——宁可保持现状，也不静默改掉用户的选择。
+    /// </summary>
+    /// <remarks>
+    /// 参数依次为：脚本语言、用户当前选择（探针判负）的完整路径、检测到且通过探针的替代路径；
+    /// 返回 true 表示用户同意换绑。实现须同步返回（本委托在 UI 线程上被调用）。
+    /// </remarks>
+    public Func<string, string, string, bool>? RuntimeHealConfirm { get; set; }
+
+    /// <summary>
+    /// 已被用户明确拒绝过的「语言 + 当前路径」组合：不再重复弹窗，避免每切一次脚本就被问一遍。
+    /// 用户重新手动选择该语言的可执行文件时清空对应项（= 再给一次机会）。
+    /// </summary>
+    private readonly HashSet<string> _healDeclined = new(StringComparer.OrdinalIgnoreCase);
+
+    private static string HealKey(string lang, string current) => lang + "|" + current;
+
+    /// <summary>
+    /// 自愈换绑前的用户征询：返回 true 才会落盘换绑。
+    /// 已拒绝过的组合、以及未注入确认入口（无 UI 宿主）时一律返回 false，保持用户的原选择。
+    /// </summary>
+    private bool RequestRuntimeHeal(string lang, string current, string suggested)
+    {
+        var key = HealKey(lang, current);
+        if (_healDeclined.Contains(key)) return false;   // 同一选择已拒绝过：不再打扰
+        if (RuntimeHealConfirm == null) return false;    // 无 UI 宿主：保守不换绑
+        if (RuntimeHealConfirm(lang, current, suggested)) return true;
+        _healDeclined.Add(key);
+        return false;
+    }
+
+    /// <summary>
+    /// 校验当前脚本语言的可执行文件：先读已保存配置，缺失则尝试自动检测
+    /// （免安装运行时目录 runtime_dir → 系统 PATH → Windows 系统目录）。
     /// 结果驱动顶部只读输入框（SelectedExePath）；未配置时 SelectedExePath 为空并展示占位提示。
     /// </summary>
     private void RefreshRuntimeStatus()
@@ -1256,6 +1306,17 @@ public class MainViewModel : ViewModelBase
             // 未选择脚本：不显示 placeholder，也不带出任何路径
             SelectedExePath = "";
             RuntimePlaceholder = "";
+            return;
+        }
+
+        // 语言标注有误（不受支持的取值，如 ps1 / powershell7）：检测与探针都无从下手，
+        // 必须点明是「语言不受支持」，否则用户会以为是本机缺运行时而反复折腾（装什么也没用）。
+        if (!RuntimeConfig.IsSupported(lang))
+        {
+            SelectedExePath = "";
+            RuntimePlaceholder = string.Format(Strings.RuntimePlaceholderUnsupportedLang, lang);
+            RuntimeError = true;
+            IsRuntimeChecking = false;   // 本分支直接返回、不跑探针，需显式复位上一次可能仍在飞的校验标志
             return;
         }
 
@@ -1293,21 +1354,71 @@ public class MainViewModel : ViewModelBase
         if (RuntimeProbe.TryGetCached(lang, exePath, out var cached))
         {
             ApplyProbeResult(lang!, cached.ok, cached.version);
+            // 判负已是已知结论，但**不能就此停住**：该绑定可能来自旧版本的候选规则
+            // （见 RuntimeConfig.FindUsableAlternative），不重新检测就永远好不了。
+            if (!cached.ok) ProbeRuntimeAsync(lang!, exePath, alreadyKnownBad: true);
             return;
         }
 
         SetBaseStatus(Strings.StatusReady);
         RuntimeError = false;
         IsRuntimeChecking = true;   // 校验中：执行按钮置灰、选择框禁用
-        var probeLang = lang!;
+        ProbeRuntimeAsync(lang!, exePath, alreadyKnownBad: false);
+    }
+
+    /// <summary>
+    /// 后台实跑版本探针，完成后回 UI 线程落结果。判负时顺带做一次<b>绑定自愈</b>：按当前候选表重新检测，
+    /// 命中「不同且确实可用」的路径就替换并落盘。
+    /// <para>
+    /// 为什么需要：已保存的路径只按「文件是否存在」沿用，探针判负也只标红、不重检测。于是旧版本遗留的绑定
+    /// （如 powershell/pwsh 解耦之前，powershell 的候选表把 pwsh.exe 排在首位）会永久僵死——
+    /// 机器上明明有正确的 5.1，脚本却一直标红不可用，且换机/升级都不会自愈。
+    /// 自愈只在同语言候选表内进行，无可用替代则维持原状（标红置灰），绝不跨语言兜底。
+    /// </para>
+    /// </summary>
+    /// <param name="alreadyKnownBad">true 表示该 exe 的探针结果已知为负（来自缓存），跳过重复实跑，直接尝试自愈。</param>
+    private void ProbeRuntimeAsync(string lang, string exePath, bool alreadyKnownBad)
+    {
+        if (alreadyKnownBad) IsRuntimeChecking = true;   // 自愈同样要起子进程，一并告知 UI「校验中」
         Task.Run(() =>
         {
-            var (ok, version) = RuntimeProbe.Probe(probeLang, exePath);
+            bool ok;
+            string? version;
+            if (alreadyKnownBad) { ok = false; version = null; }
+            else { (ok, version) = RuntimeProbe.Probe(lang, exePath); }
+
+            // 判负 → 在后台把「同语言候选表里确实可用」的替代连同它的版本号一起找出来，
+            // 但【不在这里落盘】：换绑必须等用户在 UI 线程上确认（见 RequestRuntimeHeal）。
+            string? alt = null;
+            string? altVersion = null;
+            if (!ok)
+            {
+                alt = RuntimeConfig.FindUsableAlternative(lang, exePath, p =>
+                {
+                    var probed = RuntimeProbe.Probe(lang, p);
+                    if (probed.ok) altVersion = probed.version;   // 顺手留下版本号，省一次重复探测
+                    return probed.ok;
+                });
+            }
+
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
                 // 用户可能已切到别的脚本，丢弃过期结果
-                if (!string.Equals(SelectedScript?.Lang, probeLang, StringComparison.OrdinalIgnoreCase)) return;
-                ApplyProbeResult(probeLang, ok, version);
+                if (!string.Equals(SelectedScript?.Lang, lang, StringComparison.OrdinalIgnoreCase)) return;
+
+                if (alt != null && RequestRuntimeHeal(lang, exePath, alt))
+                {
+                    // 用户确认换绑：落盘 + 顶层输入框同步显示 + 按替代项的探测结果刷新（先落基线状态，再给临时提示）
+                    RuntimeConfig.Save(lang, alt);
+                    SelectedExePath = alt;
+                    ApplyProbeResult(lang, true, altVersion);
+                    ShowTemporaryStatus(string.Format(Strings.StatusRuntimeHealedFormat, lang));
+                    return;
+                }
+
+                // 无可用替代 / 用户选择保留：维持用户的选择，按原始判负结果标红置灰
+                ApplyProbeResult(lang, ok, version);
+                if (alt != null) ShowTemporaryStatus(Strings.StatusRuntimeHealDeclined);
             }));
         });
     }
@@ -1348,11 +1459,14 @@ public class MainViewModel : ViewModelBase
         // 手动选择即落盘（无论版本校验是否通过）：用户错选后可由「自动」按钮纠正。
         // 校验失败会在 UI 标红、置灰运行按钮，但不应丢弃用户的显式选择。
         RuntimeConfig.Save(lang!, dlg.FileName);
+        // 用户重新选择 = 该语言此前的「拒绝自愈」记录作废，再给一次询问机会
+        _healDeclined.RemoveWhere(k => k.StartsWith(lang + "|", StringComparison.OrdinalIgnoreCase));
         RefreshRuntimeStatus(); // 内部回填 SelectedExePath 并实跑/命中版本号探测，失败则标红
     }
 
     /// <summary>
-    /// 「自动」按钮：忽略用户当前选择，重新按环境变量/系统目录自动检测该语言的可执行文件，
+    /// 「自动」按钮：忽略用户当前选择，重新按「免安装运行时目录（runtime_dir）→ 系统 PATH → 系统目录」
+    /// 的顺序自动检测该语言的可执行文件，
     /// 覆盖缓存并回填，用于纠正用户错选后「不知道本来该选哪个」的情况。
     /// 不缓存版本号 —— 仍由 RefreshRuntimeStatus 实时探测。
     /// </summary>
@@ -1383,41 +1497,207 @@ public class MainViewModel : ViewModelBase
     #endregion
 
     #region 导出 / 复制 / 重置
-    private void DoExport()
+    #region 另存为（预览区 / 树节点）
+
+    /// <summary>目录节点「另存为」：把该目录（含嵌套子目录）下全部脚本打包成 zip，
+    /// 脚本与目录名均取自 index.json 的显示名；编码按各脚本语言保证可直接运行。
+    /// 空目录（无脚本后代）由调用方禁用菜单项，这里仍做兜底校验。</summary>
+    public void SaveAsGroup(ScriptTreeItem node)
     {
+        if (node is not { Kind: ScriptTreeItem.NodeKind.Group })
+            return;
+
+        if (!HasScriptDescendant(node))
+        {
+            ShowTemporaryStatus(Strings.StatusSaveAsEmpty);
+            return;
+        }
+
+        var safeRoot = SanitizeFileName(string.IsNullOrEmpty(node.Name.Trim())
+            ? "scripts"
+            : StripTrailingExtension(node.Name.Trim()));
+        var dlg = new SaveFileDialog
+        {
+            Title = Strings.DlgExportZipTitle,
+            FileName = $"{safeRoot}.zip",
+            Filter = "压缩文件 (*.zip)|*.zip|所有文件 (*.*)|*.*",
+            AddExtension = true,
+            DefaultExt = "zip"
+        };
+        ApplyDefaultSaveDir(dlg);
+        if (dlg.ShowDialog() != true) return; // 用户取消
+
+        if (File.Exists(dlg.FileName)) File.Delete(dlg.FileName);
+
         try
         {
-            // 让用户自行选择导出目录，将整个 script 目录打包为 script_yyyyMMddHHmmss.zip
-            var dlg = new OpenFolderDialog
+            using (var zip = ZipFile.Open(dlg.FileName, ZipArchiveMode.Create))
             {
-                Title = Strings.DlgExportDirTitle,
-                InitialDirectory = ExeDir
-            };
-            if (dlg.ShowDialog() != true) return; // 用户取消
-            var ok = Exporter.ExportToZip(ConfigLoader.ScriptDir, dlg.FolderName, out var zipPath, out var error);
-            if (ok)
-            {
-                ShowTemporaryStatus(string.Format(Strings.StatusExportedTo, zipPath));
-                // 打开资源管理器并选中刚导出的压缩包
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "explorer.exe",
-                    Arguments = $"/select,\"{zipPath}\"",
-                    UseShellExecute = true
-                });
+                AddNodesToZip(zip, node.Children, safeRoot);
             }
-            else
+            ShowTemporaryStatus(string.Format(Strings.StatusSaveAsDone, dlg.FileName));
+            // 打开资源管理器并选中刚导出的压缩包
+            Process.Start(new ProcessStartInfo
             {
-                ShowTemporaryStatus(string.IsNullOrEmpty(error)
-                    ? Strings.StatusExportEmpty
-                    : string.Format(Strings.StatusExportFailFormat, error));
-            }
+                FileName = "explorer.exe",
+                Arguments = $"/select,\"{dlg.FileName}\"",
+                UseShellExecute = true
+            });
         }
         catch (Exception ex)
         {
-            ShowTemporaryStatus(string.Format(Strings.StatusExportFailFormat, ex.Message));
+            ShowTemporaryStatus(string.Format(Strings.StatusSaveAsFailFormat, ex.Message));
         }
     }
+
+    /// <summary>zip 内根目录名 = 当前索引文件所在目录名（内置 script 目录 → script）；取不到（或只剩盘根）时退回 script。</summary>
+    private string RootExportFolderName
+    {
+        get
+        {
+            var dir = string.IsNullOrWhiteSpace(_loadedIndexPath) ? null : Path.GetDirectoryName(_loadedIndexPath);
+            // 索引直接放在盘根（C:\index.json）或共享根（\\srv\share\index.json）时，目录名会退化成 "C:"/"share"
+            // 这类无意义的根名（净化后成 "C_"），按「取不到」处理，退回约定名 script。
+            if (dir != null && string.Equals(Path.GetPathRoot(dir), dir, StringComparison.OrdinalIgnoreCase))
+                dir = null;
+            var name = string.IsNullOrWhiteSpace(dir)
+                ? null
+                : Path.GetFileName(dir!.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            return SanitizeFileName(string.IsNullOrEmpty(name) ? "script" : name);
+        }
+    }
+
+    /// <summary>「文件▸全部另存为」/ 根层级（面板空白）「另存为」：把整棵脚本树打包成一个 zip
+    /// （等同于对索引所在目录做「另存为」，zip 内根目录名即该目录名，默认 script）。
+    /// 脚本与目录名取自 index.json 显示名、编码按语言，与目录节点的「另存为」完全同源。</summary>
+    public void SaveAsRoot()
+    {
+        if (ScriptTree == null || ScriptTree.Count == 0 || !ScriptTreeHasScripts())
+        {
+            ShowTemporaryStatus(Strings.StatusSaveAsEmpty);
+            return;
+        }
+
+        var root = RootExportFolderName;
+        var dlg = new SaveFileDialog
+        {
+            Title = Strings.DlgExportZipTitle,
+            FileName = $"{root}.zip",
+            Filter = "压缩文件 (*.zip)|*.zip|所有文件 (*.*)|*.*",
+            AddExtension = true,
+            DefaultExt = "zip"
+        };
+        ApplyDefaultSaveDir(dlg);
+        if (dlg.ShowDialog() != true) return;
+
+        if (File.Exists(dlg.FileName)) File.Delete(dlg.FileName);
+
+        try
+        {
+            using (var zip = ZipFile.Open(dlg.FileName, ZipArchiveMode.Create))
+            {
+                AddNodesToZip(zip, ScriptTree, root);
+            }
+            ShowTemporaryStatus(string.Format(Strings.StatusSaveAsDone, dlg.FileName));
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"/select,\"{dlg.FileName}\"",
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            ShowTemporaryStatus(string.Format(Strings.StatusSaveAsFailFormat, ex.Message));
+        }
+    }
+
+    /// <summary>整棵脚本树是否存在任何脚本后代（用于根层级「另存为」可用性判断）。</summary>
+    public bool ScriptTreeHasScripts()
+    {
+        if (ScriptTree == null) return false;
+        foreach (var n in ScriptTree)
+            if (HasScriptDescendant(n)) return true;
+        return false;
+    }
+
+    /// <summary>判断节点是否含脚本后代（目录为空时返回 false，用于禁用「另存为」）。</summary>
+    public static bool HasScriptDescendant(ScriptTreeItem node)
+    {
+        if (node == null) return false;
+        if (node.Kind == ScriptTreeItem.NodeKind.Script) return true;
+        foreach (var c in node.Children)
+            if (HasScriptDescendant(c)) return true;
+        return false;
+    }
+
+    /// <summary>把若干树节点（目录/脚本）递归写入 zip：目录用 index.json 显示名，脚本用显示名 + lang 后缀，编码按语言。</summary>
+    private static void AddNodesToZip(ZipArchive zip, IEnumerable<ScriptTreeItem> nodes, string prefix)
+    {
+        foreach (var node in nodes)
+        {
+            var name = SanitizeFileName(node.Name.Trim());
+            if (node.Kind == ScriptTreeItem.NodeKind.Script && node.Item != null)
+            {
+                var item = node.Item;
+                var content = BuildScriptWithDefaults(item);
+                var ext = LangToTempExt(item.Lang);
+                var baseName = StripTrailingExtension(item.Name.Trim());
+                var fileName = SanitizeFileName(string.IsNullOrEmpty(baseName) ? item.Lang : baseName) + "." + ext;
+                var entryName = string.IsNullOrEmpty(prefix) ? fileName : prefix + "/" + fileName;
+                var enc = GetExportEncoding(item.Lang);
+                var entry = zip.CreateEntry(entryName.Replace('\\', '/'));
+                // 用 StreamWriter 写出，会自动写入编码前导（如 UTF-8 BOM），与「单文件另存为」的
+                // File.WriteAllText 行为一致；若用 enc.GetBytes() 则不带 BOM，PowerShell 5.1 会把
+                // 无 BOM 的 .ps1 当 ANSI 解码，中文即乱码。
+                using (var s = entry.Open())
+                using (var sw = new StreamWriter(s, enc))
+                {
+                    sw.Write(content ?? "");
+                }
+            }
+            else if (node.Kind == ScriptTreeItem.NodeKind.Group)
+            {
+                var subPrefix = string.IsNullOrEmpty(prefix) ? name : prefix + "/" + name;
+                // 空目录也以「/」结尾的条目保留结构（zip 本身不支持实体空目录）
+                if (node.Children.Count == 0)
+                    zip.CreateEntry((subPrefix + "/").Replace('\\', '/'));
+                else
+                    AddNodesToZip(zip, node.Children, subPrefix);
+            }
+        }
+    }
+
+    /// <summary>读取脚本源文件并按其自身参数默认值代入占位符，得到可直接运行的文本（用于「另存为」导出）。</summary>
+    private static string BuildScriptWithDefaults(ScriptItem item)
+    {
+        string raw;
+        try
+        {
+            raw = File.ReadAllText(item.ResolvedPath, EncodingHelper.DetectFromFile(item.ResolvedPath));
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[MainViewModel] 读取脚本失败 {item.ResolvedPath}: {ex.Message}");
+            return string.Empty;
+        }
+        if (item.Params == null || item.Params.Count == 0) return raw;
+
+        var text = raw;
+        foreach (var p in item.Params)
+        {
+            var name = p.Name;
+            if (string.IsNullOrEmpty(name)) continue;
+            var val = p.Default ?? "";
+            var escaped = EscapeForLiteral(val, item.Lang);
+            var replacement = escaped.Replace("$", "$$");
+            var pattern = @"_p\{\s*" + Regex.Escape(name) + @"\s*\}";
+            text = Regex.Replace(text, pattern, replacement, RegexOptions.None);
+        }
+        return text;
+    }
+
+    #endregion
 
     private void CopyPreview()
     {
@@ -1442,36 +1722,155 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    /// <summary>导出「代入参数后」的完整脚本，文件名与脚本文件一致，UTF8 无 BOM。</summary>
-    private void ExportPreview()
+    /// <summary>
+    /// 预览区「另存为」：保存当前选中脚本（用实时参数代入，与预览一致）。
+    /// 文件名取 JSON 显示名（<see cref="ScriptItem.Name"/>），后缀按 lang 自动拼接（<see cref="LangToTempExt"/>），
+    /// 编码按语言保证导出后可直接运行。
+    /// <para>
+    /// 编码策略（与「执行」临时文件保持一致，且对独立文件同样成立）：
+    ///   - powershell / pwsh：UTF-8 带 BOM（Windows PowerShell 5.1 读无 BOM 的 .ps1 会按 ANSI 解码乱码）；
+    ///   - cmd：系统 ANSI 代码页（中文 Windows = 936/GBK）。cmd 没有文件编码概念、按该代码页解码 bat，
+    ///     故用同一代码页写出，双击即可正确运行（与手工保存的 ANSI 批处理一致）；不套用运行期的
+    ///     <see cref="CmdScriptRewriter"/>（那依赖运行器注入环境块，独立文件无注入方、占位符会变空）。
+    ///   - 其余语言（python/node/bash/java/go/rust）：UTF-8 无 BOM。
+    /// </para>
+    /// </summary>
+    private void SaveAsPreview()
     {
         if (SelectedScript == null) return;
         var script = SelectedScript;
-        var text = BuildParameterizedScript(lang: script.Lang);
-        var defaultName = Path.GetFileName(script.ResolvedPath);
-        SaveTextWithDialog(defaultName, text, Strings.DlgExportScriptFilter, Strings.DlgExportScriptDonePrefix);
+        var text = BuildParameterizedScript(lang: script.Lang); // 当前选中脚本的实时参数（与预览一致）
+        SaveScriptWithDialog(script, text);
     }
 
-    /// <summary>用 SaveFileDialog 让用户选择保存位置，按 UTF-8 无 BOM 写出文本（与源脚本一致）。</summary>
-    private void SaveTextWithDialog(string defaultFileName, string content, string filter, string successPrefix)
+    /// <summary>树节点「另存为」（脚本类，传 ScriptItem）：按该脚本自身的参数默认值代入占位符后另存为。</summary>
+    public void SaveAsScript(ScriptItem script)
+    {
+        if (script == null) return;
+        var text = BuildScriptWithDefaults(script); // 该脚本自身的参数默认值
+        SaveScriptWithDialog(script, text);
+    }
+
+    /// <summary>树节点「另存为」（脚本类，传节点）：定位 ScriptItem 后调用 <see cref="SaveAsScript(ScriptItem)"/>。</summary>
+    public void SaveAsScript(ScriptTreeItem node)
+    {
+        if (node is not { Kind: ScriptTreeItem.NodeKind.Script, Item: not null } n) return;
+        SaveAsScript(n.Item);
+    }
+
+    /// <summary>把单个脚本另存为文件：文件名取 JSON 显示名 + lang 后缀，编码按语言保证可直接运行。</summary>
+    private void SaveScriptWithDialog(ScriptItem script, string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            ShowTemporaryStatus(Strings.StatusCopyEmpty);
+            return;
+        }
+
+        var ext = LangToTempExt(script.Lang);
+        // 文件名取 JSON 显示名：去掉可能自带的扩展名（避免 Hello.ps1.bat 这种重复），按 lang 重新拼后缀；
+        // 再 sanitize 掉文件系统非法字符，空名回退到 lang 本身。
+        var baseName = StripTrailingExtension(script.Name.Trim());
+        var safeName = SanitizeFileName(string.IsNullOrEmpty(baseName) ? script.Lang : baseName);
+        var defaultName = $"{safeName}.{ext}";
+
+        SaveTextWithDialog(defaultName, text, GetExportEncoding(script.Lang), Strings.StatusSaveAsScriptDone);
+    }
+
+    /// <summary>「另存为」对话框的默认目录：当前用户的下载目录（不存在则不改动，交给系统默认）。</summary>
+    private static void ApplyDefaultSaveDir(SaveFileDialog dlg)
+    {
+        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+        if (Directory.Exists(dir)) dlg.InitialDirectory = dir;
+    }
+
+    /// <summary>用 SaveFileDialog 让用户选择保存位置，按指定编码写出文本（文件名/编码由调用方按语言决定）。</summary>
+    private void SaveTextWithDialog(string defaultFileName, string content, Encoding encoding, string successPrefix)
     {
         try
         {
+            var ext = Path.GetExtension(defaultFileName).TrimStart('.').ToLowerInvariant();
             var dlg = new SaveFileDialog
             {
                 FileName = defaultFileName,
-                Filter = filter,
+                Filter = string.IsNullOrEmpty(ext)
+                    ? "脚本文件 (*.*)|*.*"
+                    : $"脚本文件 (*.{ext})|*.{ext}|所有文件 (*.*)|*.*",
                 AddExtension = true,
-                DefaultExt = Path.GetExtension(defaultFileName)
+                DefaultExt = string.IsNullOrEmpty(ext) ? "txt" : ext
             };
+            ApplyDefaultSaveDir(dlg);
             if (dlg.ShowDialog() != true) return; // 用户取消
-            File.WriteAllText(dlg.FileName, content ?? string.Empty, new UTF8Encoding(false));
+            File.WriteAllText(dlg.FileName, content ?? string.Empty, encoding);
             ShowTemporaryStatus($"{successPrefix}{dlg.FileName}");
         }
         catch (Exception ex)
         {
-            ShowTemporaryStatus(string.Format(Strings.StatusExportFailFormat, ex.Message));
+            ShowTemporaryStatus(string.Format(Strings.StatusSaveAsFailFormat, ex.Message));
         }
+    }
+
+    /// <summary>按语言决定导出编码（见 <see cref="SaveAsPreview"/> 注释）。</summary>
+    private static Encoding GetExportEncoding(string lang)
+    {
+        if (IsPowerShellLang(lang))
+            return new UTF8Encoding(true); // 带 BOM：Windows PowerShell 5.1 读无 BOM 的 .ps1 会按 ANSI 解码乱码
+
+        if (string.Equals(lang, ScriptLangs.Cmd, StringComparison.OrdinalIgnoreCase))
+        {
+            // cmd 按系统 ANSI 代码页解码 bat：取该代码页写出，中文 Windows 上即 GBK（936），双击即可正确运行。
+            // 注意 Encoding.Default 在本机是 UTF-8，必须用系统 ANSI 代码页（GetACP），不能用 Default。
+            EnsureCodePages();
+            try
+            {
+                return Encoding.GetEncoding(GetAnsiCodePage());
+            }
+            catch
+            {
+                // 兜底：极端情况下取不到 ANSI 代码页，退回 UTF-8 无 BOM（仍可能被中文 Windows 误读，但至少不崩）
+                return new UTF8Encoding(false);
+            }
+        }
+
+        return new UTF8Encoding(false); // python/node/bash/java/go/rust 等：UTF-8 无 BOM
+    }
+
+    private static bool _codePagesRegistered;
+    /// <summary>GBK 等 ANSI 代码页在 .NET 中需注册 CodePages 提供器后才能 GetEncoding；幂等。</summary>
+    private static void EnsureCodePages()
+    {
+        if (_codePagesRegistered) return;
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        _codePagesRegistered = true;
+    }
+
+    /// <summary>系统 ANSI 代码页（中文 Windows = 936/GBK）。cmd.exe 即按此解码 .bat，故导出编码须与之匹配。</summary>
+    [DllImport("kernel32", CharSet = CharSet.Auto)]
+    private static extern int GetACP();
+
+    /// <summary>取系统 ANSI 代码页号（GetACP 的托管封装）。</summary>
+    private static int GetAnsiCodePage() => GetACP();
+
+    /// <summary>去掉名称尾部疑似扩展名的片段（纯字母数字、长度 ≤6，如 .ps1/.bat/.py），避免重复后缀。</summary>
+    private static string StripTrailingExtension(string name)
+    {
+        var dot = name.LastIndexOf('.');
+        if (dot <= 0 || dot == name.Length - 1) return name;
+        var extPart = name[(dot + 1)..];
+        if (extPart.Length <= 6 && extPart.All(char.IsLetterOrDigit))
+            return name[..dot];
+        return name;
+    }
+
+    /// <summary>把字符串净化成合法文件名：非法字符替换为下划线，去首尾空白与点，空则回退为 "script"。</summary>
+    private static string SanitizeFileName(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var sb = new StringBuilder(name.Length);
+        foreach (var c in name)
+            sb.Append(invalid.Contains(c) ? '_' : c);
+        var cleaned = sb.ToString().Trim().Trim('.', ' ');
+        return string.IsNullOrEmpty(cleaned) ? "script" : cleaned;
     }
 
     private void ResetParams()

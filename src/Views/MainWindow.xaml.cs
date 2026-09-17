@@ -24,6 +24,14 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _vm = new MainViewModel();
+        // 可执行文件「自动回正」前的警告确认：VM 不直接弹窗（沿用本项目约定：VM 只回状态栏文本，
+        // 弹窗一律在 View 层），由 View 注入实现；owner 取本窗口 → 窗口级模态，弹窗期间点不到主界面。
+        // 默认按钮为「否」：直接关窗 / 回车都保持原选择，不会被无声换掉。
+        _vm.RuntimeHealConfirm = (lang, current, suggested) =>
+            MessageBox.Show(this,
+                string.Format(Strings.DlgRuntimeHealConfirmFormat, lang, current, suggested),
+                Strings.TitleWindow, MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                MessageBoxResult.No) == MessageBoxResult.Yes;
         DataContext = _vm;
 
         // 窗口显示前就位：全屏/最大化立即生效，避免先普通尺寸闪一帧（位置不缓存）
@@ -204,6 +212,21 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>顶部「文件 ▸ 重载脚本文件」：选定索引文件后二次确认（重载会用所选索引整体替换当前脚本树），
+    /// 确认通过才真正加载。执行中该菜单项已由 CanReloadScriptFile 置灰，此处不再重复校验。</summary>
+    private void MenuReloadScriptFile_Click(object sender, RoutedEventArgs e)
+    {
+        var indexPath = _vm.PickScriptIndexFile();
+        if (indexPath == null) return; // 用户取消选择文件
+
+        if (MessageBox.Show(this, string.Format(Strings.DlgReloadScriptFileConfirm, indexPath),
+                Strings.TitleWindow, MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                MessageBoxResult.No) != MessageBoxResult.Yes)
+            return; // 用户放弃重载，保留当前脚本树
+
+        _vm.ReloadScriptFile(indexPath);
+    }
+
     /// <summary>顶部「设置 ▸ 编辑配置」：打开 config.ini 结构化编辑弹窗（模态， Owner=主窗口）。</summary>
     private void MenuEditConfig_Click(object sender, RoutedEventArgs e)
     {
@@ -218,9 +241,9 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// 脚本树右键菜单：按命中目标动态构建——
-    ///  - 面板空白：创建目录 / 创建脚本（AI）；
-    ///  - 目录节点：创建目录 / 创建脚本（AI）/ 删除目录；
-    ///  - 脚本节点：编辑脚本 / 删除脚本。
+    ///  - 面板空白：创建目录 / 创建脚本 / 另存为；
+    ///  - 目录节点：创建目录 / 创建脚本 / 另存为 / 重命名 / 删除；
+    ///  - 脚本节点：另存为 / 编辑 / 重命名 / 删除。
     /// 右键先把命中项置为选中（WPF 右键默认不改选中），保证动作取到的就是所点节点。
     /// </summary>
     private void ScriptTreeView_ContextMenuOpening(object sender, ContextMenuEventArgs e)
@@ -240,32 +263,40 @@ public partial class MainWindow : Window
     {
         var cm = new ContextMenu();
 
-        if (node == null || node.Kind != ScriptTreeItem.NodeKind.Script)
+        if (node == null)
         {
-            // 面板 / 目录节点：创建目录 + 创建脚本（AI）
+            // 面板空白（根层级）：目录类基础操作 + 整树「另存为」（无脚本时置灰）
             cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuCreateDir, "folder-plus.svg", TreeCreateDir_Click));
             cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuCreateScript, "bot.svg", TreeCreateScript_Click));
-        }
-        else
-        {
-            // 脚本节点：编辑 + 重命名 + 删除
-            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuEditScript, "pencil.svg", TreeEditScript_Click));
-            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuRename, "pencil.svg", TreeRename_Click));
-            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuDeleteScript, "trash-2.svg", TreeDeleteScript_Click));
+            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuSaveAs, "download.svg", TreeSaveAsRoot_Click,
+                _vm.ScriptTreeHasScripts()));
+            return cm;
         }
 
-        if (node is { Kind: ScriptTreeItem.NodeKind.Group })
+        if (node.Kind == ScriptTreeItem.NodeKind.Group)
         {
-            cm.Items.Add(new Separator());
+            // 目录类：创建目录 / 创建脚本 / 另存为（空目录置灰）/ 重命名 / 删除
+            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuCreateDir, "folder-plus.svg", TreeCreateDir_Click));
+            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuCreateScript, "bot.svg", TreeCreateScript_Click));
+            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuSaveAs, "download.svg", TreeSaveAsDir_Click,
+                MainViewModel.HasScriptDescendant(node)));
             cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuRename, "pencil.svg", TreeRename_Click));
-            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuDeleteDir, "trash-2.svg", TreeDeleteDir_Click));
+            cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuDelete, "trash-2.svg", TreeDeleteDir_Click));
+            return cm;
         }
+
+        // 脚本类：另存为 / 编辑 / 重命名 / 删除
+        // 「编辑」与「创建脚本」同用机器人图标（bot.svg），让用户一眼识别这是 AI 功能
+        cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuSaveAs, "download.svg", TreeSaveAsScript_Click));
+        cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuEdit, "bot.svg", TreeEditScript_Click));
+        cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuRename, "pencil.svg", TreeRename_Click));
+        cm.Items.Add(MakeTreeMenuItem(Strings.TreeMenuDelete, "trash-2.svg", TreeDeleteScript_Click));
         return cm;
     }
 
-    private static MenuItem MakeTreeMenuItem(string header, string iconFile, RoutedEventHandler onClick)
+    private static MenuItem MakeTreeMenuItem(string header, string iconFile, RoutedEventHandler onClick, bool isEnabled = true)
     {
-        var mi = new MenuItem { Header = header };
+        var mi = new MenuItem { Header = header, IsEnabled = isEnabled };
         try
         {
             mi.Icon = new SharpVectors.Converters.SvgViewbox
@@ -281,6 +312,26 @@ public partial class MainWindow : Window
         }
         mi.Click += onClick;
         return mi;
+    }
+
+    /// <summary>右键「另存为」（脚本节点）：按 JSON 显示名 + lang 后缀 + 按语言编码另存为单个脚本文件。</summary>
+    private void TreeSaveAsScript_Click(object sender, RoutedEventArgs e)
+    {
+        if (_ctxNode is { Kind: ScriptTreeItem.NodeKind.Script } node)
+            _vm.SaveAsScript(node);
+    }
+
+    /// <summary>右键「另存为」（目录节点）：把该目录子树打包成 zip（脚本/目录名用 JSON 显示名，空目录置灰）。</summary>
+    private void TreeSaveAsDir_Click(object sender, RoutedEventArgs e)
+    {
+        if (_ctxNode is { Kind: ScriptTreeItem.NodeKind.Group } node)
+            _vm.SaveAsGroup(node);
+    }
+
+    /// <summary>右键「另存为」（面板空白 = 根层级）：把整棵脚本树打包成 zip。</summary>
+    private void TreeSaveAsRoot_Click(object sender, RoutedEventArgs e)
+    {
+        _vm.SaveAsRoot();
     }
 
     /// <summary>右键「创建目录」：目标 = 所点目录节点之下（面板空白 = 根层级）。输入名称 → 写唯一索引 → 刷新树。</summary>
@@ -300,12 +351,14 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>右键「创建脚本（AI）」：打开 AI 编辑器（创建模式），新条目将插入所点目录（面板空白 = 根层级）。</summary>
+    /// <summary>右键「创建脚本」：打开 AI 编辑器（创建模式），新条目将插入所点目录（面板空白 = 根层级）。</summary>
     private void TreeCreateScript_Click(object sender, RoutedEventArgs e)
     {
         var parentId = _ctxNode is { Kind: ScriptTreeItem.NodeKind.Group } g ? g.EntryId : null;
         var dlg = new AiScriptGenWindow { Owner = this, OwnerViewModel = _vm, ParentGroupId = parentId };
         dlg.ShowDialog();
+        // 接受并写入后：展开父目录并选中新脚本，使它立刻落在用户视野内（取消 / 关闭则不动）
+        RevealScriptInTree(dlg.AcceptedEntryId);
     }
 
     /// <summary>
@@ -337,7 +390,7 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>右键「编辑脚本」：载入现有脚本内容与参数作为种子，AI 按修改要求改写后覆盖原文件并更新索引条目。</summary>
+    /// <summary>右键「编辑」：载入现有脚本内容与参数作为种子，AI 按修改要求改写后覆盖原文件并更新索引条目。</summary>
     private void TreeEditScript_Click(object sender, RoutedEventArgs e)
     {
         if (_ctxNode is not { Kind: ScriptTreeItem.NodeKind.Script, Item: not null } node)
@@ -388,9 +441,11 @@ public partial class MainWindow : Window
             EditFilePath = item.ResolvedPath
         };
         dlg.ShowDialog();
+        // 接受并写入后：展开其所在目录并选中该脚本，使改动结果立刻落在用户视野内（取消 / 关闭则不动）
+        RevealScriptInTree(dlg.AcceptedEntryId);
     }
 
-    /// <summary>右键「删除目录」：二次确认后仅从唯一索引移除该目录条目（含子树），不删任何脚本文件。</summary>
+    /// <summary>右键「删除」菜单项（作用于目录）：二次确认后仅从唯一索引移除该目录条目（含子树），不删任何脚本文件。</summary>
     private void TreeDeleteDir_Click(object sender, RoutedEventArgs e)
     {
         if (_ctxNode is not { Kind: ScriptTreeItem.NodeKind.Group } node)
@@ -411,7 +466,7 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>右键「删除脚本」：二次确认后删除索引条目与脚本文件（仅限 script 目录内，防路径穿越）。</summary>
+    /// <summary>右键「删除」菜单项（作用于脚本）：二次确认后删除索引条目、脚本文件（仅限 script 目录内，防路径穿越）及其历史记录目录。</summary>
     private void TreeDeleteScript_Click(object sender, RoutedEventArgs e)
     {
         if (_ctxNode is not { Kind: ScriptTreeItem.NodeKind.Script, Item: not null } node)
@@ -432,6 +487,10 @@ public partial class MainWindow : Window
             var scriptDir = System.IO.Path.TrimEndingDirectorySeparator(ConfigLoader.ScriptDir);
             if (File.Exists(filePath) && filePath.StartsWith(scriptDir, StringComparison.OrdinalIgnoreCase))
                 File.Delete(filePath);
+
+            // 同步删除该脚本的历史记录目录（history\{脚本id}\），避免留下无主历史；
+            // 失败仅记调试日志，不影响删除主流程（ScriptHistory 内部已吞异常）
+            ScriptHistory.DeleteFor(node.EntryId!);
 
             _vm.ReloadTree();
         }
@@ -505,6 +564,221 @@ public partial class MainWindow : Window
         return null;
     }
 
+    // ---- 目录树拖拽：拖目录 / 脚本改变其显示层级与同级顺序（只改 index.json 结构，不动物理脚本文件）----
+
+    /// <summary>拖拽候选源节点（左键按下时记录）；DoDragDrop 返回后清空。</summary>
+    private ScriptTreeItem? _dragStartNode;
+
+    /// <summary>左键按下时的窗口坐标，用于判定是否越过系统拖拽阈值（避免把普通点击误判成拖拽）。</summary>
+    private Point _dragStartPoint;
+
+    /// <summary>当前被高亮为放置目标的 TreeViewItem（拖拽经过时置，离开/放下时清）。</summary>
+    private TreeViewItem? _dragOverItem;
+
+    /// <summary>当前高亮对应的放置模式，用于避免重复设置边框。</summary>
+    private DropMode _dragOverMode = DropMode.None;
+
+    /// <summary>放置模式：同级之前插入 / 同级之后插入 / 作为子项放入。</summary>
+    private enum DropMode { None, Before, After, Inside }
+
+    /// <summary>左键按下：记录拖拽候选源；真正开始拖拽在 MouseMove 里按位移阈值判定。</summary>
+    private void TreeItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_vm.IsRunning) { _dragStartNode = null; return; }
+        _dragStartNode = (sender as TreeViewItem)?.DataContext as ScriptTreeItem;
+        _dragStartPoint = e.GetPosition(null);
+    }
+
+    /// <summary>鼠标移动：左键按住且位移超过系统阈值时发起拖拽，数据对象携带源条目 id。</summary>
+    private void TreeItem_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (_dragStartNode == null || e.LeftButton != MouseButtonState.Pressed || _vm.IsRunning)
+            return;
+        var diff = e.GetPosition(null) - _dragStartPoint;
+        if (Math.Abs(diff.X) < SystemParameters.MinimumHorizontalDragDistance
+            && Math.Abs(diff.Y) < SystemParameters.MinimumVerticalDragDistance)
+            return;
+        // 根不是可拖条目；无 id 的旧条目也不能拖
+        if (_dragStartNode.Kind == ScriptTreeItem.NodeKind.Root || string.IsNullOrEmpty(_dragStartNode.EntryId))
+            return;
+        if (sender is not TreeViewItem tvi) return;
+
+        var data = new DataObject("ScriptTreeEntryId", _dragStartNode.EntryId!);
+        DragDrop.DoDragDrop(tvi, data, DragDropEffects.Move);
+        // DoDragDrop 阻塞至拖放结束（Drop / 取消），返回后清空候选源
+        _dragStartNode = null;
+    }
+
+    /// <summary>
+    /// 按鼠标在目标项内的垂直位置推断放置模式（支持同级排序）：
+    /// 目录——上 1/4 插到其前、下 1/4 插到其后、中间 1/2 放入其内；
+    /// 脚本——上 1/2 插到其前、下 1/2 插到其后（脚本无子项，不存在「放入」）。
+    /// </summary>
+    private static DropMode GetDropMode(TreeViewItem tvi, Point pos, ScriptTreeItem? target)
+    {
+        if (target == null) return DropMode.None;
+        var h = tvi.ActualHeight;
+        if (h <= 0) return DropMode.None;
+        if (target.Kind == ScriptTreeItem.NodeKind.Group)
+        {
+            if (pos.Y < h * 0.25) return DropMode.Before;
+            if (pos.Y > h * 0.75) return DropMode.After;
+            return DropMode.Inside;
+        }
+        return pos.Y < h * 0.5 ? DropMode.Before : DropMode.After;
+    }
+
+    /// <summary>把放置模式解析为「目标父 id + 锚点兄弟 id + 是否插到锚点之后」；锚点为空 = 追加到目标父末尾。</summary>
+    private static (string? parentId, string? anchorId, bool insertAfter) ResolveDrop(ScriptTreeItem? target, DropMode mode)
+    {
+        if (target == null || mode == DropMode.None)
+            return (null, null, false);                                  // 空白 = 根层级末尾
+        if (mode == DropMode.Inside)
+            return (target.EntryId, null, false);                        // 放入目录末尾
+        // Before / After：与目标同级，锚点 = 目标自身
+        return (ScriptIndexStore.FindParentId(target.EntryId!), target.EntryId, mode == DropMode.After);
+    }
+
+    /// <summary>合法性校验：源不能是自身；不能放进脚本；插入位置的父不能是源自身或源（目录）的子孙。</summary>
+    private static bool IsValidDropTarget(ScriptTreeItem? src, ScriptTreeItem? target, DropMode mode)
+    {
+        if (src == null || target == null || mode == DropMode.None) return false;
+        if (ReferenceEquals(src, target)) return false;
+        if (string.IsNullOrEmpty(src.EntryId) || string.IsNullOrEmpty(target.EntryId)) return false;
+        if (src.Kind == ScriptTreeItem.NodeKind.Root) return false;
+        if (mode == DropMode.Inside && target.Kind != ScriptTreeItem.NodeKind.Group) return false;
+        return IsValidParent(src, ResolveDrop(target, mode).parentId);
+    }
+
+    /// <summary>目标父是否合法：根（null）恒可；否则不能是源自身，也不能是源（目录）的子孙。</summary>
+    private static bool IsValidParent(ScriptTreeItem src, string? newParentId)
+    {
+        if (string.IsNullOrEmpty(newParentId)) return true;
+        if (string.Equals(newParentId, src.EntryId, StringComparison.Ordinal)) return false;
+        return src.Kind != ScriptTreeItem.NodeKind.Group || !TreeContainsId(src, newParentId);
+    }
+
+    private static bool TreeContainsId(ScriptTreeItem node, string id)
+    {
+        foreach (var c in node.Children)
+        {
+            if (string.Equals(c.EntryId, id, StringComparison.Ordinal)) return true;
+            if (TreeContainsId(c, id)) return true;
+        }
+        return false;
+    }
+
+    private void TreeItem_DragOver(object sender, DragEventArgs e)
+    {
+        if (sender is not TreeViewItem tvi) return;
+        var target = tvi.DataContext as ScriptTreeItem;
+        var mode = GetDropMode(tvi, e.GetPosition(tvi), target);
+        if (IsValidDropTarget(_dragStartNode, target, mode))
+        {
+            e.Effects = DragDropEffects.Move;
+            HighlightDropTarget(tvi, mode);
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+            ClearDropHighlight();
+        }
+        e.Handled = true;
+    }
+
+    private void TreeItem_DragLeave(object sender, DragEventArgs e)
+    {
+        if (ReferenceEquals(sender, _dragOverItem))
+            ClearDropHighlight();
+    }
+
+    private void TreeItem_Drop(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        ClearDropHighlight();
+        if (sender is not TreeViewItem tvi) return;
+        var target = tvi.DataContext as ScriptTreeItem;
+        var mode = GetDropMode(tvi, e.GetPosition(tvi), target);
+        if (!IsValidDropTarget(_dragStartNode, target, mode)) return;
+        var (parentId, anchorId, insertAfter) = ResolveDrop(target, mode);
+        PerformTreeMove(_dragStartNode!, parentId, anchorId, insertAfter);
+    }
+
+    /// <summary>拖到树面板空白处 = 移到根层级末尾。</summary>
+    private void ScriptTreeView_DragOver(object sender, DragEventArgs e)
+    {
+        var hit = VisualTreeHelper.HitTest(ScriptTreeView, e.GetPosition(ScriptTreeView));
+        if (FindParentTreeViewItem(hit?.VisualHit) != null) return;   // 命中项：交由项级 DragOver 处理
+        if (_dragStartNode != null)
+        {
+            e.Effects = DragDropEffects.Move;
+            ClearDropHighlight();
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+        }
+        e.Handled = true;
+    }
+
+    private void ScriptTreeView_Drop(object sender, DragEventArgs e)
+    {
+        var hit = VisualTreeHelper.HitTest(ScriptTreeView, e.GetPosition(ScriptTreeView));
+        if (FindParentTreeViewItem(hit?.VisualHit) != null) return;   // 命中项：交由项级 Drop 处理
+        e.Handled = true;
+        ClearDropHighlight();
+        if (_dragStartNode == null) return;
+        PerformTreeMove(_dragStartNode, null, null, false);
+    }
+
+    /// <summary>
+    /// 执行移动：先固化当前展开状态——否则 ReloadTree 读到的树状态缓存是陈旧的（缓存只在关窗时写），
+    /// 会把本次会话里手动展开的目录全部收起；随后写 index.json 并整树重建，由缓存恢复展开。
+    /// </summary>
+    private void PerformTreeMove(ScriptTreeItem src, string? newParentId, string? anchorId, bool insertAfter)
+    {
+        if (string.IsNullOrEmpty(src.EntryId)) return;
+        try
+        {
+            _vm.SaveTreeState();
+            ScriptIndexStore.MoveEntry(src.EntryId!, newParentId, anchorId, insertAfter);
+            _vm.ReloadTree();
+        }
+        catch (System.Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, Strings.TitleWindow, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            _dragStartNode = null;
+        }
+    }
+
+    /// <summary>按放置模式高亮目标：Inside 整框、Before 上边线、After 下边线（均为蓝色）。</summary>
+    private void HighlightDropTarget(TreeViewItem tvi, DropMode mode)
+    {
+        if (ReferenceEquals(_dragOverItem, tvi) && _dragOverMode == mode) return;
+        ClearDropHighlight();
+        _dragOverItem = tvi;
+        _dragOverMode = mode;
+        tvi.BorderBrush = (Brush)FindResource("BrushPrimary");
+        tvi.BorderThickness = mode switch
+        {
+            DropMode.Before => new Thickness(0, 2, 0, 0),
+            DropMode.After => new Thickness(0, 0, 0, 2),
+            _ => new Thickness(2),
+        };
+    }
+
+    private void ClearDropHighlight()
+    {
+        if (_dragOverItem == null) return;
+        _dragOverItem.BorderThickness = new Thickness(0);
+        _dragOverItem.ClearValue(Control.BorderBrushProperty);
+        _dragOverItem = null;
+        _dragOverMode = DropMode.None;
+    }
+
     /// <summary>
     /// TreeViewItem 选中后默认会触发 RequestBringIntoView，框架把它对齐到滚动条左边缘；
     /// 超长脚本名（如「网络详情网络详情...」）会被截掉左半，用户看不到关键信息。
@@ -557,6 +831,87 @@ public partial class MainWindow : Window
         {
             if (obj is T t) return t;
             obj = VisualTreeHelper.GetParent(obj);
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// 「接受并写入」关闭 AI 弹窗后调用：把新创建 / 刚编辑的脚本展开到可见并选中，
+    /// 使结果立刻处于用户视野内（逐级展开其父目录 + 垂直滚动到该行）。
+    /// entryId 为空（未接受 / 取消 / 直接关闭）时什么都不做。
+    /// </summary>
+    private void RevealScriptInTree(string? entryId)
+    {
+        if (string.IsNullOrEmpty(entryId)) return;
+
+        var ancestors = new List<ScriptTreeItem>();
+        var node = FindNodeByEntryId(_vm.ScriptTree, entryId!, ancestors);
+        if (node == null) return;   // 树已按新索引重建，正常路径必然命中
+
+        // 逐级展开途经的目录节点，保证目标项可见
+        foreach (var a in ancestors)
+        {
+            if (a.Kind == ScriptTreeItem.NodeKind.Group)
+                a.IsExpanded = true;
+        }
+
+        SelectAndScrollToNode(node);
+    }
+
+    /// <summary>
+    /// 选中目标节点并滚动到可见。展开父目录后子项容器要等下一次布局才生成，
+    /// 故先强制一次布局；仍未生成时挂到下一轮 Dispatcher（限次数，防死循环）。
+    /// </summary>
+    private void SelectAndScrollToNode(ScriptTreeItem node, int attempt = 0)
+    {
+        ScriptTreeView.UpdateLayout();
+        var tvi = FindTreeViewItemByData(ScriptTreeView, node);
+        if (tvi == null)
+        {
+            if (attempt >= 3) return;   // 防御：IsVirtualizing=False 下不应发生
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded,
+                new Action(() => SelectAndScrollToNode(node, attempt + 1)));
+            return;
+        }
+
+        tvi.IsSelected = true;   // 触发 SelectedItemChanged → 右侧面板载入该脚本
+
+        // 垂直滚动到可见：RequestBringIntoView 已被上面的水平对齐处理器标记 Handled，不会自动纵向滚
+        var sv = FindAncestor<ScrollViewer>(tvi);
+        if (sv == null) return;
+        var top = tvi.TransformToAncestor(sv).Transform(new Point(0, 0)).Y;
+        var bottom = top + tvi.ActualHeight;
+        if (top < 0)
+            sv.ScrollToVerticalOffset(sv.VerticalOffset + top);
+        else if (bottom > sv.ViewportHeight)
+            sv.ScrollToVerticalOffset(sv.VerticalOffset + bottom - sv.ViewportHeight);
+    }
+
+    /// <summary>按条目 id 在树中递归查找节点，途经的祖先（根 → 父）按序填入 ancestors。</summary>
+    private static ScriptTreeItem? FindNodeByEntryId(
+        IEnumerable<ScriptTreeItem> nodes, string entryId, List<ScriptTreeItem> ancestors)
+    {
+        foreach (var n in nodes)
+        {
+            if (string.Equals(n.EntryId, entryId, StringComparison.Ordinal))
+                return n;
+            ancestors.Add(n);
+            var hit = FindNodeByEntryId(n.Children, entryId, ancestors);
+            if (hit != null) return hit;
+            ancestors.RemoveAt(ancestors.Count - 1);
+        }
+        return null;
+    }
+
+    /// <summary>在已生成的容器树中按 DataContext 递归定位 TreeViewItem（程序化选中 / 滚动用）。</summary>
+    private static TreeViewItem? FindTreeViewItemByData(ItemsControl parent, object data)
+    {
+        for (var i = 0; i < parent.Items.Count; i++)
+        {
+            if (parent.ItemContainerGenerator.ContainerFromIndex(i) is not TreeViewItem tvi) continue;
+            if (ReferenceEquals(tvi.DataContext, data)) return tvi;
+            var child = FindTreeViewItemByData(tvi, data);
+            if (child != null) return child;
         }
         return null;
     }

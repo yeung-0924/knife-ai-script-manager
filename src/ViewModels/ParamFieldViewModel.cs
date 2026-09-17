@@ -32,7 +32,7 @@ public class ParamFieldViewModel : ViewModelBase
     /// <summary>是否为"选文件/选目录"型：文本框右侧显示浏览…按钮。</summary>
     public bool IsPath => IsFile || IsFolder;
 
-    /// <summary>浏览按钮图标：选文件(file)用 folder-open-dot，选目录(folder)用 folder-open（与工具栏「打开」一致）。</summary>
+    /// <summary>浏览按钮图标：选文件(file)用 folder-open-dot，选目录(folder)用 folder-open（与工具栏「重载脚本文件」一致）。</summary>
     public System.Uri BrowseIconUri =>
         IsFile
             ? new System.Uri("pack://application:,,,/assets/images/button/folder-open-dot.svg", System.UriKind.Absolute)

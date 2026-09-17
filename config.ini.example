@@ -12,11 +12,17 @@
 ; 第三方依赖目录（默认：exe 同级 lib；注入环境变量 SCRIPT_MANAGER_LIB 供脚本引用）
 ;lib_dir =
 ; 运行时安装目录（默认：exe 同级 runtime；注入环境变量 SCRIPT_MANAGER_RUNTIME 供安装脚本默认使用）
+; 该目录同时是可执行文件自动检测的首选位置（优先于系统 PATH）：把免安装运行时解压到此处即被优先采用。
 ;runtime_dir =
 ; 缓存文件目录（默认：exe 同级 cache）
 ;cache_dir =
 ; 日志目录（默认：exe 同级 log，如 error.log）
 ;log_dir =
+; 脚本变更历史目录（默认：exe 同级 history）
+; 每次保存脚本（新增 / 编辑）后按脚本 id 分目录留一份副本，以时间戳命名，便于日后回退。
+; 现阶段只做记录，不提供历史查看与一键回退；删除脚本时对应历史一并删除。
+; 改动本项后旧历史留在原目录不迁移（与 log_dir 同），下次保存起写入新目录。
+;history_dir =
 ; 脚本默认执行超时（秒）：0 或留空表示不限制（无限等待，默认）。
 ; 单脚本可在 index.json 用 timeout 字段单独覆盖；两者皆未设则不超时。
 ;default_timeout =

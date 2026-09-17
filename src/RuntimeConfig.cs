@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -8,7 +9,9 @@ namespace AIScriptManager;
 
 /// <summary>
 /// 按 lang 维护运行程序路径（每种语言一条），持久化到 cache/runtimes.json（IO 见 RuntimeConfigCache）。
-/// 缺失的路径由 <see cref="EnsureAutoDetected"/> 在首次启动时尝试自动检测（cmd/powershell 必有；其他按需）。
+/// 缺失的路径由 <see cref="EnsureAutoDetected"/> 在首次启动时尝试自动检测。
+/// 自动检测优先级（2026-09-16 起）：免安装运行时目录（runtime_dir）→ 系统 PATH → Windows 系统目录兜底；
+/// 即「绿色版自带运行时」优先于机器上安装的版本，见 <see cref="TryDetect"/>。
 /// </summary>
 public static class RuntimeConfig
 {
@@ -35,7 +38,10 @@ public static class RuntimeConfig
     /// <summary>取某个 lang 的当前路径（可能为 null：未配置或自动检测失败）。</summary>
     public static string? Get(string lang) => RuntimeConfigCache.Load().GetValueOrDefault(lang);
 
-    /// <summary>仅尝试自动检测某语言可执行文件（不落盘），找到返回完整路径，否则 null。供 UI 校验时即时带出。</summary>
+    /// <summary>
+    /// 仅尝试自动检测某语言可执行文件（不落盘），找到返回完整路径，否则 null。供 UI 校验时即时带出。
+    /// 顺序：免安装运行时目录（runtime_dir）→ 系统 PATH → Windows 系统目录。
+    /// </summary>
     public static string? Detect(string lang)
     {
         if (string.IsNullOrWhiteSpace(lang)) return null;
@@ -44,14 +50,64 @@ public static class RuntimeConfig
         return null;
     }
 
+    /// <summary>
+    /// 该 lang 是否受支持（在候选表内）。用于把「脚本语言标注有误」与「本机缺运行时」两类问题分开提示：
+    /// 未知语言的自动检测与版本探针都无从下手（<see cref="RuntimeProbe"/> 的表里也没有它），
+    /// 若只显示「未检测到运行时」，会把用户引向错误方向（去装运行时，装什么也没用）。
+    /// </summary>
+    public static bool IsSupported(string? lang) =>
+        !string.IsNullOrWhiteSpace(lang) && DefaultCandidates.ContainsKey(lang!);
+
+    /// <summary>
+    /// 已保存的运行时路径不可用时的「自愈」检测：按<b>当前</b>候选表重新检测，返回一个与 <paramref name="current"/>
+    /// 不同、且通过 <paramref name="isUsable"/>（通常是版本探针）的替代路径；没有可用替代则返回 null。
+    /// <para>
+    /// 存在意义：<c>cache/runtimes.json</c> 里可能残留<b>旧版本规则写入</b>的绑定。典型是 powershell 与 pwsh
+    /// 解耦之前，powershell 的候选表曾把 pwsh.exe 排在首位——装了 PowerShell 7 的机器上会把「powershell」
+    /// 绑到 pwsh.exe 并落盘。该绑定此后只按「文件是否存在」被沿用，探针判负也只是标红、不会重新检测，
+    /// 于是机器上明明有正确的 5.1，脚本却永久不可用（换机/升级后同样如此）。
+    /// </para>
+    /// <para>
+    /// 边界：只在<b>同语言</b>的候选表内寻找（<see cref="Detect"/> 天然不跨语言），因此不存在「降级到另一个
+    /// 语言」的可能——powershell 只会找到 powershell.exe，绝不接受 pwsh.exe。找不到替代时维持原状（标红置灰）。
+    /// </para>
+    /// </summary>
+    public static string? FindUsableAlternative(string lang, string? current, Func<string, bool> isUsable)
+    {
+        var alt = Detect(lang);
+        if (string.IsNullOrWhiteSpace(alt)) return null;
+        if (string.Equals(alt, current, StringComparison.OrdinalIgnoreCase)) return null;
+        try
+        {
+            return isUsable(alt) ? alt : null;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[RuntimeConfig] 自愈检测异常 {lang}：{ex.Message}");
+            return null;
+        }
+    }
+
     /// <summary>每个 lang 在自动检测时尝试的执行文件名候选（按顺序匹配）。</summary>
-    private static readonly Dictionary<string, string[]> DefaultCandidates = new()
+    /// <remarks>
+    /// 字典用 <see cref="StringComparer.OrdinalIgnoreCase"/>：index.json 的 lang 由用户/AI 书写，
+    /// 大小写不该影响检测。此处若用默认（区分大小写）比较器，lang 写成 "PowerShell" 会让
+    /// <see cref="Detect"/> 静默返回 null——机器上装着 5.1 却提示未检测到运行时。
+    /// 注意 keys 互不同形（powershell / pwsh 并非仅大小写之差），故不敏感归并不会产生歧义。
+    /// </remarks>
+    private static readonly Dictionary<string, string[]> DefaultCandidates = new(StringComparer.OrdinalIgnoreCase)
     {
         // 顺序遵循朝云约定：cmd → powershell → powershell7 → bash → java → nodejs → python → go → rust
         [ScriptLangs.Cmd]        = new[] { "cmd.exe" },
-        [ScriptLangs.PowerShell] = new[] { "pwsh.exe", "powershell.exe" },
-        // 只认 pwsh.exe（PowerShell 6+），不回退到 powershell.exe——
-        // 回退会让「指定 pwsh」退化成可能跑在 5.1 上，失去区分意义
+        // 【刻意不列 pwsh.exe】：powershell 与 pwsh 视为两个完全不同的语言（2026-09-16 定），
+        // 各自强绑定：powershell ≡ Windows PowerShell 5.1，pwsh ≡ PowerShell 6+。
+        // 若此处把 pwsh.exe 排在前面，装了 PowerShell 7 的机器上「powershell」会被绑到 7，
+        // 与 pwsh 混用（且 RuntimeProbe 的版本闸会把它判负，变成「明明有 5.1 却不可用」）。
+        [ScriptLangs.PowerShell] = new[] { "powershell.exe" },
+        // 只认 pwsh.exe（PowerShell 6+）。【刻意不回退】到 powershell.exe：
+        // 回退会让「指定 pwsh」退化成可能跑在 5.1 上，与 powershell 失去区分意义。
+        // 这是产品决策而非实现疏漏——机器未装 PS7 时，pwsh 脚本就该「检测不到运行时」并标红置灰，
+        // 宁可不可用，也不要静默降级到 5.1（2026-09-16 确认）。改此处前请先确认该决策已变更。
         [ScriptLangs.Pwsh]       = new[] { "pwsh.exe" },
         [ScriptLangs.Bash]       = new[] { "bash.exe" },
         [ScriptLangs.Java]       = new[] { "java.exe" },
@@ -61,21 +117,98 @@ public static class RuntimeConfig
         [ScriptLangs.Rust]       = new[] { "rustc.exe", "cargo.exe" }
     };
 
-    /// <summary>优先用 PATH 找，再回退到 Windows 系统目录（System32 / SystemWOW64），都找不到返回 null。</summary>
+    /// <summary>
+    /// 自动检测顺序（2026-09-16 调整）：① 免安装运行时目录（配置的 runtime_dir，留空则 exe 同级 runtime）
+    /// ② 系统环境变量 PATH ③ Windows 系统目录（System32 / SysWOW64）兜底。都找不到返回 null。
+    /// 免安装目录置于首位，是为了让「绿色版自带运行时」自足：把 JDK 解压进 runtime 即被优先采用，
+    /// 不必依赖机器上安装的版本。
+    /// </summary>
     private static string? TryDetect(string[] candidates)
     {
+        // 1) 免安装运行时目录（优先于系统环境）
+        var viaRuntimeDir = FindInRuntimeDir(candidates);
+        if (viaRuntimeDir != null) return viaRuntimeDir;
+
         foreach (var name in candidates)
         {
-            // 1) PATH 解析（兼容普通环境）
+            // 2) PATH 解析（兼容普通环境）
             var viaPath = FindOnPath(name);
             if (viaPath != null) return viaPath;
-            // 2) Windows 系统目录兜底（cmd.exe / powershell.exe 几乎一定在 System32）
+            // 3) Windows 系统目录兜底（cmd.exe / powershell.exe 几乎一定在 System32）
             var sysRoot = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
             var systemDir = Path.Combine(sysRoot, "System32");
             var sysFull = Path.Combine(systemDir, name);
             if (File.Exists(sysFull)) return sysFull;
             var wowFull = Path.Combine(sysRoot, "SysWOW64", name);
             if (File.Exists(wowFull)) return wowFull;
+        }
+        return null;
+    }
+
+    /// <summary>免安装运行时目录下的最大向下搜索层数（层数再深说明布局非预期，不再浪费 IO）。</summary>
+    private const int RuntimeDirMaxDepth = 4;
+
+    /// <summary>
+    /// 在免安装运行时目录（<see cref="AppConfig.RuntimeDir"/>：配置的 runtime_dir，留空则 exe 同级 runtime）
+    /// 下查找该语言的候选可执行文件。命中顺序「浅层优先」，避免对大目录树做全量遍历：
+    ///   ① runtime\&lt;exe&gt; ｜ runtime\bin\&lt;exe&gt;（整个运行时或 bin 内容直接摊在根）
+    ///   ② 逐层向下（BFS，最多 <see cref="RuntimeDirMaxDepth"/> 层）：&lt;子目录&gt;\bin\&lt;exe&gt; ｜ &lt;子目录&gt;\&lt;exe&gt;
+    /// 覆盖 runtime\jdk-25\bin\java.exe、runtime\java\bin\java.exe 等常见绿色版布局。
+    /// 目录不存在 / 无匹配 / 访问异常返回 null（交由后续 PATH 检测）。
+    /// </summary>
+    private static string? FindInRuntimeDir(string[] candidates)
+    {
+        string root;
+        try
+        {
+            root = AppConfig.RuntimeDir;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[RuntimeConfig] 读取 runtime_dir 失败：{ex.Message}");
+            return null;
+        }
+        if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root)) return null;
+
+        // ① runtime 根 / runtime\bin
+        foreach (var name in candidates)
+        {
+            var direct = Path.Combine(root, name);
+            if (File.Exists(direct)) return Path.GetFullPath(direct);
+            var inBin = Path.Combine(root, "bin", name);
+            if (File.Exists(inBin)) return Path.GetFullPath(inBin);
+        }
+
+        // ② BFS 逐层向下（浅层优先，命中即返回）
+        var queue = new Queue<(string Dir, int Depth)>();
+        queue.Enqueue((root, 0));
+        while (queue.Count > 0)
+        {
+            var (dir, depth) = queue.Dequeue();
+            if (depth >= RuntimeDirMaxDepth) continue;
+
+            string[] subs;
+            try
+            {
+                subs = Directory.GetDirectories(dir);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[RuntimeConfig] 枚举 runtime 子目录失败 {dir}：{ex.Message}");
+                continue;
+            }
+
+            foreach (var sub in subs)
+            {
+                foreach (var name in candidates)
+                {
+                    var inBin = Path.Combine(sub, "bin", name);
+                    if (File.Exists(inBin)) return Path.GetFullPath(inBin);
+                    var flat = Path.Combine(sub, name);
+                    if (File.Exists(flat)) return Path.GetFullPath(flat);
+                }
+                queue.Enqueue((sub, depth + 1));
+            }
         }
         return null;
     }

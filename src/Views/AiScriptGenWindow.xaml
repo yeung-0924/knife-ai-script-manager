@@ -16,18 +16,17 @@
         </Grid>
 
         <StackPanel>
-            <!-- 脚本名称：创建/编辑时都可手填；生成完成后由 AI 取名回填（手动改过则保留） -->
-            <TextBlock x:Name="NameLabel" Text="{x:Static local:Strings.AiGenNameLabel}" Margin="0,0,0,4" />
+            <!-- 脚本名称：生成后由 AI 取名，可手动覆盖（创建/编辑模式均生效） -->
+            <TextBlock x:Name="NameLabel" Text="{x:Static local:Strings.AiGenNameLabel}" Margin="0,0,0,4" FontWeight="Bold" />
             <Grid>
-                <TextBox x:Name="NameBox" Height="30" Padding="6,4" Style="{StaticResource BaseTextBox}" TextChanged="NameBox_TextChanged" />
+                <TextBox x:Name="NameBox" Height="32" Padding="6,7" Style="{StaticResource BaseTextBox}" TextChanged="NameBox_TextChanged" />
                 <TextBlock x:Name="NamePlaceholder" Text="{x:Static local:Strings.AiGenNamePlaceholder}"
                            Foreground="{DynamicResource BrushPlaceholder}"
-                           Margin="9,6,9,6" IsHitTestVisible="False"
+                           Margin="9,8,9,8" TextWrapping="Wrap" IsHitTestVisible="False"
                            Visibility="{Binding Text, ElementName=NameBox, Converter={x:Static local:StringEmptyToVisibilityConverter.Instance}}" />
             </Grid>
-
             <!-- 脚本功能描述：语言与参数都在描述里一并说明，无需单独选择（编辑模式下由代码-behind 换成「修改要求」文案） -->
-            <TextBlock x:Name="DescLabel" Text="{x:Static local:Strings.AiGenDescLabel}" Margin="0,0,0,4" />
+            <TextBlock x:Name="DescLabel" Text="{x:Static local:Strings.AiGenDescLabel}" Margin="0,0,0,4" FontWeight="Bold" />
             <Grid>
                 <!-- Padding 6,7：文本真实落点 = Padding + TextBoxView 内缩(左3/上1) = (9,8)，
                      与占位符 Margin(9,8,9,8) 精确对齐（占位符消失→正文显示，位置不跳动） -->
