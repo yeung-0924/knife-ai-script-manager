@@ -1502,12 +1502,16 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    /// <summary>zip 内根目录名 = 当前索引文件所在目录名（内置 script 目录 → script）；取不到时退回 script。</summary>
+    /// <summary>zip 内根目录名 = 当前索引文件所在目录名（内置 script 目录 → script）；取不到（或只剩盘根）时退回 script。</summary>
     private string RootExportFolderName
     {
         get
         {
             var dir = string.IsNullOrWhiteSpace(_loadedIndexPath) ? null : Path.GetDirectoryName(_loadedIndexPath);
+            // 索引直接放在盘根（C:\index.json）或共享根（\\srv\share\index.json）时，目录名会退化成 "C:"/"share"
+            // 这类无意义的根名（净化后成 "C_"），按「取不到」处理，退回约定名 script。
+            if (dir != null && string.Equals(Path.GetPathRoot(dir), dir, StringComparison.OrdinalIgnoreCase))
+                dir = null;
             var name = string.IsNullOrWhiteSpace(dir)
                 ? null
                 : Path.GetFileName(dir!.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
