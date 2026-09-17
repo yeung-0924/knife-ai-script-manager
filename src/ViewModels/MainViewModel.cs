@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Text;
 using System.Threading.Tasks;
@@ -1495,36 +1496,125 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    /// <summary>导出「代入参数后」的完整脚本，文件名与脚本文件一致，UTF8 无 BOM。</summary>
+    /// <summary>
+    /// 导出「代入参数后」的完整脚本：文件名取 JSON 显示名（<see cref="ScriptItem.Name"/>），
+    /// 后缀按 lang 自动拼接（<see cref="LangToTempExt"/>），编码按语言保证导出后可直接运行。
+    /// <para>
+    /// 编码策略（与「执行」临时文件保持一致，且对独立文件同样成立）：
+    ///   - powershell / pwsh：UTF-8 带 BOM（Windows PowerShell 5.1 读无 BOM 的 .ps1 会按 ANSI 解码乱码）；
+    ///   - cmd：系统 ANSI 代码页（中文 Windows = 936/GBK）。cmd 没有文件编码概念、按该代码页解码 bat，
+    ///     故用同一代码页写出，双击即可正确运行（与手工保存的 ANSI 批处理一致）；不套用运行期的
+    ///     <see cref="CmdScriptRewriter"/>（那依赖运行器注入环境块，独立文件无注入方、占位符会变空）。
+    ///   - 其余语言（python/node/bash/java/go/rust）：UTF-8 无 BOM。
+    /// </para>
+    /// </summary>
     private void ExportPreview()
     {
         if (SelectedScript == null) return;
         var script = SelectedScript;
         var text = BuildParameterizedScript(lang: script.Lang);
-        var defaultName = Path.GetFileName(script.ResolvedPath);
-        SaveTextWithDialog(defaultName, text, Strings.DlgExportScriptFilter, Strings.DlgExportScriptDonePrefix);
+        if (string.IsNullOrEmpty(text))
+        {
+            ShowTemporaryStatus(Strings.StatusCopyEmpty);
+            return;
+        }
+
+        var ext = LangToTempExt(script.Lang);
+        // 文件名取 JSON 显示名：去掉可能自带的扩展名（避免 Hello.ps1.bat 这种重复），按 lang 重新拼后缀；
+        // 再 sanitize 掉文件系统非法字符，空名回退到 lang 本身。
+        var baseName = StripTrailingExtension(script.Name.Trim());
+        var safeName = SanitizeFileName(string.IsNullOrEmpty(baseName) ? script.Lang : baseName);
+        var defaultName = $"{safeName}.{ext}";
+
+        SaveTextWithDialog(defaultName, text, GetExportEncoding(script.Lang), Strings.DlgExportScriptDonePrefix);
     }
 
-    /// <summary>用 SaveFileDialog 让用户选择保存位置，按 UTF-8 无 BOM 写出文本（与源脚本一致）。</summary>
-    private void SaveTextWithDialog(string defaultFileName, string content, string filter, string successPrefix)
+    /// <summary>用 SaveFileDialog 让用户选择保存位置，按指定编码写出文本（文件名/编码由调用方按语言决定）。</summary>
+    private void SaveTextWithDialog(string defaultFileName, string content, Encoding encoding, string successPrefix)
     {
         try
         {
+            var ext = Path.GetExtension(defaultFileName).TrimStart('.').ToLowerInvariant();
             var dlg = new SaveFileDialog
             {
                 FileName = defaultFileName,
-                Filter = filter,
+                Filter = string.IsNullOrEmpty(ext)
+                    ? "脚本文件 (*.*)|*.*"
+                    : $"脚本文件 (*.{ext})|*.{ext}|所有文件 (*.*)|*.*",
                 AddExtension = true,
-                DefaultExt = Path.GetExtension(defaultFileName)
+                DefaultExt = string.IsNullOrEmpty(ext) ? "txt" : ext
             };
             if (dlg.ShowDialog() != true) return; // 用户取消
-            File.WriteAllText(dlg.FileName, content ?? string.Empty, new UTF8Encoding(false));
+            File.WriteAllText(dlg.FileName, content ?? string.Empty, encoding);
             ShowTemporaryStatus($"{successPrefix}{dlg.FileName}");
         }
         catch (Exception ex)
         {
             ShowTemporaryStatus(string.Format(Strings.StatusExportFailFormat, ex.Message));
         }
+    }
+
+    /// <summary>按语言决定导出编码（见 <see cref="ExportPreview"/> 注释）。</summary>
+    private static Encoding GetExportEncoding(string lang)
+    {
+        if (IsPowerShellLang(lang))
+            return new UTF8Encoding(true); // 带 BOM：Windows PowerShell 5.1 读无 BOM 的 .ps1 会按 ANSI 解码乱码
+
+        if (string.Equals(lang, ScriptLangs.Cmd, StringComparison.OrdinalIgnoreCase))
+        {
+            // cmd 按系统 ANSI 代码页解码 bat：取该代码页写出，中文 Windows 上即 GBK（936），双击即可正确运行。
+            // 注意 Encoding.Default 在本机是 UTF-8，必须用系统 ANSI 代码页（GetACP），不能用 Default。
+            EnsureCodePages();
+            try
+            {
+                return Encoding.GetEncoding(GetAnsiCodePage());
+            }
+            catch
+            {
+                // 兜底：极端情况下取不到 ANSI 代码页，退回 UTF-8 无 BOM（仍可能被中文 Windows 误读，但至少不崩）
+                return new UTF8Encoding(false);
+            }
+        }
+
+        return new UTF8Encoding(false); // python/node/bash/java/go/rust 等：UTF-8 无 BOM
+    }
+
+    private static bool _codePagesRegistered;
+    /// <summary>GBK 等 ANSI 代码页在 .NET 中需注册 CodePages 提供器后才能 GetEncoding；幂等。</summary>
+    private static void EnsureCodePages()
+    {
+        if (_codePagesRegistered) return;
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        _codePagesRegistered = true;
+    }
+
+    /// <summary>系统 ANSI 代码页（中文 Windows = 936/GBK）。cmd.exe 即按此解码 .bat，故导出编码须与之匹配。</summary>
+    [DllImport("kernel32", CharSet = CharSet.Auto)]
+    private static extern int GetACP();
+
+    /// <summary>取系统 ANSI 代码页号（GetACP 的托管封装）。</summary>
+    private static int GetAnsiCodePage() => GetACP();
+
+    /// <summary>去掉名称尾部疑似扩展名的片段（纯字母数字、长度 ≤6，如 .ps1/.bat/.py），避免重复后缀。</summary>
+    private static string StripTrailingExtension(string name)
+    {
+        var dot = name.LastIndexOf('.');
+        if (dot <= 0 || dot == name.Length - 1) return name;
+        var extPart = name[(dot + 1)..];
+        if (extPart.Length <= 6 && extPart.All(char.IsLetterOrDigit))
+            return name[..dot];
+        return name;
+    }
+
+    /// <summary>把字符串净化成合法文件名：非法字符替换为下划线，去首尾空白与点，空则回退为 "script"。</summary>
+    private static string SanitizeFileName(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var sb = new StringBuilder(name.Length);
+        foreach (var c in name)
+            sb.Append(invalid.Contains(c) ? '_' : c);
+        var cleaned = sb.ToString().Trim().Trim('.', ' ');
+        return string.IsNullOrEmpty(cleaned) ? "script" : cleaned;
     }
 
     private void ResetParams()

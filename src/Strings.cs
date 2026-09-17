@@ -186,7 +186,6 @@ public static class Strings
     public const string DlgPickFileFilter = "所有文件 (*.*)|*.*";
     public const string DlgPickFolderTitle = "请选择{0}";
     public const string DlgExportDirTitle = "选择导出目录";
-    public const string DlgExportScriptFilter = "脚本文件|*.*";
     public const string DlgExportScriptDonePrefix = "导出的脚本已保存到：";
     public const string DlgOpenScriptFileTitle = "选择脚本索引文件（index.json）";
     #endregion
